@@ -20,8 +20,8 @@ export function RecentSignals({ signals }: RecentSignalsProps) {
   };
 
   return (
-    <Card className="h-full border-border/30 bg-card/80 backdrop-blur-sm overflow-hidden flex flex-col">
-      <CardHeader className="py-3 px-4 border-b border-border/30 shrink-0">
+    <Card className="h-full border-border/30 bg-card/95 backdrop-blur-sm overflow-hidden flex flex-col shadow-lg">
+      <CardHeader className="py-4 px-5 border-b border-border/30 shrink-0 bg-background/20">
         <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
           <Clock className="w-3.5 h-3.5" />
           Recent Signals
@@ -43,9 +43,9 @@ export function RecentSignals({ signals }: RecentSignalsProps) {
             {signals.map((signal) => (
               <div 
                 key={signal.id} 
-                className="flex items-center gap-3 p-3 hover:bg-muted/10 transition-colors"
+                className="flex items-center gap-3 p-4 hover:bg-muted/20 transition-all duration-200 rounded-lg mx-2 my-1"
               >
-                <div className={`shrink-0 p-2 rounded-lg ${signal.type === "CALL" ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
+                <div className={`shrink-0 p-2.5 rounded-xl ${signal.type === "CALL" ? "bg-emerald-500/15 border border-emerald-500/20" : "bg-rose-500/15 border border-rose-500/20"} shadow-sm`}>
                   {signal.type === "CALL" ? (
                     <TrendingUp className="w-4 h-4 text-emerald-500" />
                   ) : (

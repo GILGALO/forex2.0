@@ -64,7 +64,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const session = getCurrentSession();
       setCurrentSession(session);
       setAvailablePairs(session.pairs);
-      
+
       // If current pair is not in new session, switch to first available
       if (!session.pairs.includes(selectedPair)) {
         setSelectedPair(session.pairs[0]);
@@ -137,7 +137,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const minStartTime = addMinutes(now, 7);
       const intervalMs = intervalMinutes * 60 * 1000;
       const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
-      
+
       // Apply GMT-4 timezone offset (subtract 4 hours)
       const GMT_OFFSET = -4 * 60; // -4 hours in minutes
       const startTimeDate = addMinutes(new Date(nextCandleTimestamp), GMT_OFFSET);
@@ -211,7 +211,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
     <div className="space-y-4">
       <Card className="border-primary/20 bg-card/90 backdrop-blur-sm overflow-hidden">
         <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border/50">
+          <div className="flex items-center justify-between p-4 bg-background/40 rounded-xl border border-border/40 shadow-sm">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${autoMode ? "bg-yellow-500/20 border-yellow-500/50" : "bg-muted/50"} border transition-colors`}>
                 <Zap className={`w-4 h-4 ${autoMode ? "text-yellow-400" : "text-muted-foreground"}`} />
@@ -235,7 +235,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           )}
 
           {!autoMode && (
-            <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border/50">
+            <div className="flex items-center justify-between p-4 bg-background/40 rounded-xl border border-border/40 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${!manualMode ? "bg-primary/20 border-primary/50" : "bg-muted/50"} border transition-colors`}>
                   <Target className={`w-4 h-4 ${!manualMode ? "text-primary" : "text-muted-foreground"}`} />

@@ -59,11 +59,11 @@ export default function Home() {
       
       <main className="container mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8">
         <header className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-primary/20 relative">
-            <div className="absolute -bottom-[1px] left-0 w-1/4 h-[2px] bg-gradient-to-r from-primary to-transparent" />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-primary/20 relative">
+            <div className="absolute -bottom-[1px] left-0 w-1/3 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent rounded-full" />
             
             <div className="flex items-center gap-3">
-              <div className="hidden sm:flex w-10 h-10 md:w-12 md:h-12 items-center justify-center bg-primary/10 border border-primary/30 rounded-lg">
+              <div className="hidden sm:flex w-10 h-10 md:w-12 md:h-12 items-center justify-center bg-primary/15 border border-primary/30 rounded-xl shadow-lg">
                 <Activity className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               </div>
               <div>
@@ -77,15 +77,15 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-card/60 backdrop-blur border border-primary/20 px-3 py-2 rounded-lg">
-              <Wifi className="w-3 h-3 text-emerald-400" />
-              <span className="text-[10px] sm:text-xs font-mono text-emerald-400 font-semibold">LIVE</span>
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+            <div className="flex items-center gap-2 bg-card/80 backdrop-blur border border-primary/30 px-4 py-2.5 rounded-xl shadow-lg">
+              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs sm:text-sm font-mono text-emerald-400 font-semibold">LIVE</span>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
             </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-7">
           <div className="xl:col-span-4 space-y-4 md:space-y-6">
             <SignalGenerator 
               onSignalGenerated={handleSignalGenerated} 
