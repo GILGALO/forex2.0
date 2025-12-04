@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { FOREX_PAIRS, TIMEFRAMES, type Signal } from "@/lib/constants";
-import { Loader2, Zap, Clock, Send, Activity, TrendingUp, TrendingDown, Target } from "lucide-react";
+import { FOREX_PAIRS, TIMEFRAMES, type Signal, getCurrentSession } from "@/lib/constants";
+import { Loader2, Zap, Clock, Send, Activity, TrendingUp, TrendingDown, Target, Globe } from "lucide-react";
 import { format, addMinutes } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,7 +37,9 @@ interface SignalAnalysisResponse {
 }
 
 export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorProps) {
-  const [selectedPair, setSelectedPair] = useState<string>(FOREX_PAIRS[0]);
+  const [currentSession, setCurrentSession] = useState(getCurrentSession());
+  const [availablePairs, setAvailablePairs] = useState<string[]>(currentSession.pairs);
+  const [selectedPair, setSelectedPair] = useState<string>(currentSession.pairs[0]);
   const [timeframe, setTimeframe] = useState<string>(TIMEFRAMES[1]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastSignal, setLastSignal] = useState<Signal | null>(null);
@@ -55,6 +57,25 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       .then(data => setTelegramConfigured(data.configured))
       .catch(() => setTelegramConfigured(false));
   }, []);
+
+  // Update session and available pairs every minute
+  useEffect(() => {
+    const updateSession = () => {
+      const session = getCurrentSession();
+      setCurrentSession(session);
+      setAvailablePairs(session.pairs);
+      
+      // If current pair is not in new session, switch to first available
+      if (!session.pairs.includes(selectedPair)) {
+        setSelectedPair(session.pairs[0]);
+        onPairChange(session.pairs[0]);
+      }
+    };
+
+    updateSession();
+    const interval = setInterval(updateSession, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [selectedPair, onPairChange]);
 
   const sendToTelegram = async (signal: Signal, analysis?: SignalAnalysisResponse) => {
     try {
@@ -232,6 +253,16 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             </div>
           )}
 
+          <div className="mb-3 p-2.5 bg-primary/10 rounded-lg border border-primary/30 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary">{currentSession.name} Session</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              {availablePairs.length} pairs active
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pair</label>
@@ -240,7 +271,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FOREX_PAIRS.map(pair => (
+                  {availablePairs.map(pair => (
                     <SelectItem key={pair} value={pair} className="font-mono">{pair}</SelectItem>
                   ))}
                 </SelectContent>
