@@ -40,9 +40,6 @@ interface SignalAnalysisResponse {
   reasoning: string[];
 }
 
-const TELEGRAM_BOT_TOKEN = "7867193391:AAGX8056zlFM_8lHY4DXYu3wZnyc-JBDL-o";
-const TELEGRAM_CHAT_ID = "-1003204026619";
-
 export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorProps) {
   const [selectedPair, setSelectedPair] = useState<string>(FOREX_PAIRS[0]);
   const [timeframe, setTimeframe] = useState<string>(TIMEFRAMES[1]);
@@ -54,66 +51,44 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const [nextSignalTime, setNextSignalTime] = useState<number | null>(null);
   const { toast } = useToast();
 
+  const [telegramConfigured, setTelegramConfigured] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/telegram/status')
+      .then(res => res.json())
+      .then(data => setTelegramConfigured(data.configured))
+      .catch(() => setTelegramConfigured(false));
+  }, []);
+
   const sendToTelegram = async (signal: Signal, analysis?: SignalAnalysisResponse) => {
-    const reasoningText = analysis?.reasoning?.length 
-      ? `\n📈 *Analysis:*\n${analysis.reasoning.map(r => `• ${r}`).join('\n')}`
-      : '';
-
-    const technicalsText = analysis?.technicals
-      ? `\n📊 *Technicals:*\n• RSI: ${analysis.technicals.rsi.toFixed(1)}\n• Trend: ${analysis.technicals.trend}\n• Momentum: ${analysis.technicals.momentum}`
-      : '';
-
-    const message = `
-🚀 *NEW SIGNAL ALERT ${autoMode ? '(AUTO)' : '(MANUAL)'}* 🚀
-
-📊 *Pair:* ${signal.pair}
-⚡ *Type:* ${signal.type === 'CALL' ? '🟢 BUY/CALL' : '🔴 SELL/PUT'}
-⏱ *Timeframe:* ${signal.timeframe}
-⏰ *Start Time:* ${signal.startTime}
-🏁 *End Time:* ${signal.endTime}
-
-🎯 *Entry:* ${signal.entry.toFixed(5)}
-🛑 *Stop Loss:* ${signal.stopLoss.toFixed(5)}
-💰 *Take Profit:* ${signal.takeProfit.toFixed(5)}
-
-💪 *Confidence:* ${signal.confidence}%
-${technicalsText}
-${reasoningText}
-    `.trim();
-
     try {
-      const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      const response = await fetch('/api/telegram/send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'Markdown',
+          signal,
+          analysis,
+          isAuto: autoMode,
         }),
       });
       
-      if (!response.ok) {
-        console.error('Failed to send to Telegram', await response.text());
-        toast({
-          title: "Telegram Error",
-          description: "Signal generated but failed to send to Telegram",
-          variant: "destructive"
-        });
-      } else {
+      const result = await response.json();
+      
+      if (result.success) {
         toast({
           title: "Sent to Telegram",
           description: "Signal broadcasted to channel successfully",
         });
+      } else if (!telegramConfigured) {
+        console.log('Telegram not configured - signal generated locally only');
+      } else {
+        toast({
+          title: "Telegram Notice",
+          description: result.message || "Signal generated but Telegram delivery pending",
+        });
       }
     } catch (error) {
-      console.error('Telegram network error', error);
-      toast({
-        title: "Network Error",
-        description: "Could not reach Telegram API",
-        variant: "destructive"
-      });
+      console.error('Telegram send error', error);
     }
   };
 
@@ -390,9 +365,11 @@ ${reasoningText}
                   <div className="text-right">
                     <div className="text-[10px] font-mono text-muted-foreground mb-1 uppercase tracking-widest">Confidence</div>
                     <div className="text-3xl font-bold text-primary neon-text-cyan">{lastSignal.confidence}%</div>
-                    <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-emerald-400 uppercase tracking-wider">
-                      <Send className="w-3 h-3" /> Telegram Sent
-                    </div>
+                    {telegramConfigured && (
+                      <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-emerald-400 uppercase tracking-wider">
+                        <Send className="w-3 h-3" /> Telegram Sent
+                      </div>
+                    )}
                   </div>
                 </div>
 
