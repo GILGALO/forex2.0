@@ -44,6 +44,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const [lastAnalysis, setLastAnalysis] = useState<SignalAnalysisResponse | null>(null);
   const [autoMode, setAutoMode] = useState(false);
   const [scanMode, setScanMode] = useState(true);
+  const [manualMode, setManualMode] = useState(true); // true = manual pair selection, false = auto-scan best pair
   const [nextSignalTime, setNextSignalTime] = useState<number | null>(null);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const { toast } = useToast();
@@ -80,7 +81,10 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       let analysisResult: SignalAnalysisResponse;
       let currentPair = selectedPair;
 
-      if (isAuto && scanMode) {
+      // Auto mode uses scanMode setting, manual button uses manualMode setting
+      const shouldScan = isAuto ? scanMode : !manualMode;
+
+      if (shouldScan) {
         const scanResponse = await fetch('/api/forex/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -206,10 +210,29 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             </div>
           )}
 
+          {!autoMode && (
+            <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border/50">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${!manualMode ? "bg-primary/20 border-primary/50" : "bg-muted/50"} border transition-colors`}>
+                  <Target className={`w-4 h-4 ${!manualMode ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div>
+                  <Label htmlFor="signal-mode" className="text-sm font-semibold cursor-pointer">Signal Mode</Label>
+                  <p className="text-[10px] text-muted-foreground">{manualMode ? "Manual: Select pair" : "Auto: Best pair"}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Manual</span>
+                <Switch id="signal-mode" checked={!manualMode} onCheckedChange={(checked) => setManualMode(!checked)} />
+                <span className="text-xs text-muted-foreground">Auto</span>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pair</label>
-              <Select value={selectedPair} onValueChange={handlePairChange}>
+              <Select value={selectedPair} onValueChange={handlePairChange} disabled={!autoMode && !manualMode}>
                 <SelectTrigger className="h-11 bg-background/50 border-border/50 font-mono text-sm">
                   <SelectValue />
                 </SelectTrigger>
@@ -243,7 +266,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             {isAnalyzing ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Analyzing...
+                {manualMode || autoMode ? "Analyzing..." : "Scanning All Pairs..."}
               </span>
             ) : autoMode ? (
               <span className="flex items-center gap-2">
@@ -253,7 +276,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             ) : (
               <span className="flex items-center gap-2">
                 <Target className="w-4 h-4" />
-                Generate Signal
+                {manualMode ? `Generate Signal (${selectedPair})` : "Find Best Signal"}
               </span>
             )}
           </Button>
