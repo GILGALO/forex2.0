@@ -143,6 +143,12 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const startTimeDate = addMinutes(new Date(nextCandleTimestamp), GMT_OFFSET);
       const endTimeDate = addMinutes(startTimeDate, 5);
 
+      // Calculate next entry time for Martingale (next candle)
+      const timeframeMinutes = timeframe.startsWith('M') 
+        ? parseInt(timeframe.substring(1)) 
+        : parseInt(timeframe.substring(1)) * 60;
+      const nextCandleTime = addMinutes(startTimeDate, timeframeMinutes);
+
       const signal: Signal = {
         id: Math.random().toString(36).substring(7),
         pair: analysisResult.pair,
@@ -155,7 +161,12 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
         timestamp: Date.now(),
         startTime: format(startTimeDate, "HH:mm"),
         endTime: format(endTimeDate, "HH:mm"),
-        status: "active"
+        status: "active",
+        martingale: {
+          entryNumber: 1,
+          canEnterNext: true,
+          nextEntryTime: format(nextCandleTime, "HH:mm")
+        }
       };
 
       setLastSignal(signal);
@@ -366,6 +377,22 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                   <span>{lastSignal.startTime} - {lastSignal.endTime}</span>
                   <span className="text-border">|</span>
                   <span>{lastSignal.timeframe}</span>
+                  {lastSignal.martingale && (
+                    <>
+                      <span className="text-border">|</span>
+                      <span className="text-primary font-semibold">
+                        Entry #{lastSignal.martingale.entryNumber}
+                      </span>
+                      {lastSignal.martingale.canEnterNext && lastSignal.martingale.nextEntryTime && (
+                        <>
+                          <span className="text-border">|</span>
+                          <span className="text-yellow-400">
+                            Next: {lastSignal.martingale.nextEntryTime}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )}
                   {telegramConfigured && (
                     <>
                       <span className="text-border">|</span>
@@ -423,6 +450,27 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-3 border-yellow-500/30 bg-yellow-950/10">
+              <CardContent className="p-3">
+                <div className="flex items-start gap-2">
+                  <div className="p-1.5 rounded bg-yellow-500/20 mt-0.5">
+                    <Target className="w-3 h-3 text-yellow-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-semibold text-yellow-400 mb-1">Martingale System Active</h4>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      • <strong>Entry #{lastSignal.martingale?.entryNumber || 1}:</strong> Enter at {lastSignal.startTime}<br/>
+                      {lastSignal.martingale?.canEnterNext && lastSignal.martingale.nextEntryTime && (
+                        <>• If this loses, enter <strong>next candle at {lastSignal.martingale.nextEntryTime}</strong><br/></>
+                      )}
+                      • Maximum 3 consecutive entries per signal<br/>
+                      • Same direction ({lastSignal.type}) for all entries
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </motion.div>

@@ -1,6 +1,5 @@
-
 export const FOREX_PAIRS = [
-  "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", 
+  "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF",
   "AUD/USD", "USD/CAD", "NZD/USD", "EUR/GBP",
   "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/AUD"
 ] as const;
@@ -8,6 +7,19 @@ export const FOREX_PAIRS = [
 export const TIMEFRAMES = [
   "M1", "M5", "M15", "M30", "H1", "H4"
 ] as const;
+
+export const MARTINGALE_CONFIG = {
+  enabled: true,
+  maxEntries: 3, // Maximum number of consecutive entries (candles)
+  timeframeMinutes: {
+    M1: 1,
+    M5: 5,
+    M15: 15,
+    M30: 30,
+    H1: 60,
+    H4: 240,
+  }
+};
 
 export type SignalType = "CALL" | "PUT";
 
@@ -23,7 +35,12 @@ export interface Signal {
   timestamp: number;
   startTime: string;
   endTime: string;
-  status: "active" | "expired" | "won" | "lost";
+  status: "active" | "won" | "lost";
+  martingale?: {
+    entryNumber: number; // 1, 2, or 3
+    canEnterNext: boolean; // Can enter next candle
+    nextEntryTime?: string; // Time for next entry
+  };
 }
 
 // Trading Sessions (GMT-4 timezone)

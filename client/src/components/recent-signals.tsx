@@ -64,6 +64,14 @@ export function RecentSignals({ signals }: RecentSignalsProps) {
                     <span>{format(signal.timestamp, "HH:mm")}</span>
                     <span className="text-border">•</span>
                     <span>{signal.startTime}-{signal.endTime}</span>
+                    {signal.martingale && (
+                      <>
+                        <span className="text-border">•</span>
+                        <span className="text-primary font-semibold">
+                          M{signal.martingale.entryNumber}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 
