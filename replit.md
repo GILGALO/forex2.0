@@ -81,6 +81,10 @@ The application runs on port 5000.
 - EUR/JPY, GBP/JPY, AUD/JPY, EUR/AUD
 
 ## Recent Changes
+- December 2024: Complete UI/UX redesign - cleaner, more organized dashboard
+- December 2024: Added mobile responsiveness with breakpoint-specific layouts
+- December 2024: Simplified futuristic styling with muted backgrounds
+- December 2024: Fixed ScrollArea React hook issue in Recent Signals
 - December 2024: Added real market data integration
 - December 2024: Implemented technical analysis engine (RSI, MACD, SMA, EMA)
 - December 2024: Added backend API for signal generation
