@@ -73,7 +73,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
     };
 
     updateSession();
-    const interval = setInterval(updateSession, 60000); // Check every minute
+    const interval = setInterval(updateSession, 300000); // Check every 5 minutes
     return () => clearInterval(interval);
   }, [selectedPair, onPairChange]);
 
