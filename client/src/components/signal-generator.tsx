@@ -116,7 +116,10 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const minStartTime = addMinutes(now, 7);
       const intervalMs = intervalMinutes * 60 * 1000;
       const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
-      const startTimeDate = new Date(nextCandleTimestamp);
+      
+      // Apply GMT-4 timezone offset (subtract 4 hours)
+      const GMT_OFFSET = -4 * 60; // -4 hours in minutes
+      const startTimeDate = addMinutes(new Date(nextCandleTimestamp), GMT_OFFSET);
       const endTimeDate = addMinutes(startTimeDate, 5);
 
       const signal: Signal = {
