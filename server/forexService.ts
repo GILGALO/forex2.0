@@ -28,10 +28,24 @@ export interface TechnicalAnalysis {
   };
   sma20: number;
   sma50: number;
+  sma200: number;
   ema12: number;
   ema26: number;
+  bollingerBands: {
+    upper: number;
+    middle: number;
+    lower: number;
+    percentB: number;
+  };
+  stochastic: {
+    k: number;
+    d: number;
+  };
+  atr: number;
+  adx: number;
   trend: "BULLISH" | "BEARISH" | "NEUTRAL";
   momentum: "STRONG" | "MODERATE" | "WEAK";
+  volatility: "HIGH" | "MEDIUM" | "LOW";
 }
 
 export interface SignalAnalysis {
@@ -300,6 +314,81 @@ function calculateMACD(prices: number[]): { macdLine: number; signalLine: number
   };
 }
 
+function calculateBollingerBands(prices: number[], period: number = 20, stdDev: number = 2): { upper: number; middle: number; lower: number; percentB: number } {
+  const middle = calculateSMA(prices, period);
+  const slice = prices.slice(-period);
+  
+  const variance = slice.reduce((sum, price) => sum + Math.pow(price - middle, 2), 0) / period;
+  const standardDeviation = Math.sqrt(variance);
+  
+  const upper = middle + (standardDeviation * stdDev);
+  const lower = middle - (standardDeviation * stdDev);
+  
+  const currentPrice = prices[prices.length - 1];
+  const percentB = (currentPrice - lower) / (upper - lower);
+  
+  return { upper, middle, lower, percentB };
+}
+
+function calculateStochastic(candles: CandleData[], kPeriod: number = 14, dPeriod: number = 3): { k: number; d: number } {
+  if (candles.length < kPeriod) return { k: 50, d: 50 };
+  
+  const slice = candles.slice(-kPeriod);
+  const currentClose = candles[candles.length - 1].close;
+  const lowestLow = Math.min(...slice.map(c => c.low));
+  const highestHigh = Math.max(...slice.map(c => c.high));
+  
+  const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
+  
+  const kValues: number[] = [];
+  for (let i = kPeriod - 1; i < candles.length; i++) {
+    const periodSlice = candles.slice(i - kPeriod + 1, i + 1);
+    const close = candles[i].close;
+    const low = Math.min(...periodSlice.map(c => c.low));
+    const high = Math.max(...periodSlice.map(c => c.high));
+    kValues.push(((close - low) / (high - low)) * 100);
+  }
+  
+  const d = kValues.length >= dPeriod 
+    ? kValues.slice(-dPeriod).reduce((a, b) => a + b, 0) / dPeriod 
+    : k;
+  
+  return { k, d };
+}
+
+function calculateADX(candles: CandleData[], period: number = 14): number {
+  if (candles.length < period + 1) return 25;
+  
+  const dmPlus: number[] = [];
+  const dmMinus: number[] = [];
+  const tr: number[] = [];
+  
+  for (let i = 1; i < candles.length; i++) {
+    const highDiff = candles[i].high - candles[i - 1].high;
+    const lowDiff = candles[i - 1].low - candles[i].low;
+    
+    dmPlus.push(highDiff > lowDiff && highDiff > 0 ? highDiff : 0);
+    dmMinus.push(lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0);
+    
+    const trueRange = Math.max(
+      candles[i].high - candles[i].low,
+      Math.abs(candles[i].high - candles[i - 1].close),
+      Math.abs(candles[i].low - candles[i - 1].close)
+    );
+    tr.push(trueRange);
+  }
+  
+  const smoothDmPlus = dmPlus.slice(-period).reduce((a, b) => a + b, 0);
+  const smoothDmMinus = dmMinus.slice(-period).reduce((a, b) => a + b, 0);
+  const smoothTr = tr.slice(-period).reduce((a, b) => a + b, 0);
+  
+  const diPlus = (smoothDmPlus / smoothTr) * 100;
+  const diMinus = (smoothDmMinus / smoothTr) * 100;
+  
+  const dx = Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100;
+  return dx;
+}
+
 export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
   const closes = candles.map(c => c.close);
   
@@ -307,8 +396,13 @@ export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
   const macd = calculateMACD(closes);
   const sma20 = calculateSMA(closes, 20);
   const sma50 = calculateSMA(closes, 50);
+  const sma200 = calculateSMA(closes, 200);
   const ema12 = calculateEMA(closes, 12);
   const ema26 = calculateEMA(closes, 26);
+  const bollingerBands = calculateBollingerBands(closes, 20, 2);
+  const stochastic = calculateStochastic(candles, 14, 3);
+  const atr = calculateATR(candles, 14);
+  const adx = calculateADX(candles, 14);
   
   const currentPrice = closes[closes.length - 1];
   
@@ -316,37 +410,73 @@ export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
   let bullishSignals = 0;
   let bearishSignals = 0;
   
-  if (currentPrice > sma20) bullishSignals++;
-  else bearishSignals++;
+  // Price vs Moving Averages (weighted higher)
+  if (currentPrice > sma20) bullishSignals += 1.5;
+  else bearishSignals += 1.5;
   
-  if (currentPrice > sma50) bullishSignals++;
-  else bearishSignals++;
+  if (currentPrice > sma50) bullishSignals += 2;
+  else bearishSignals += 2;
   
-  if (ema12 > ema26) bullishSignals++;
-  else bearishSignals++;
+  if (currentPrice > sma200) bullishSignals += 2.5;
+  else bearishSignals += 2.5;
   
-  if (macd.histogram > 0) bullishSignals++;
-  else bearishSignals++;
+  // EMA crossover
+  if (ema12 > ema26) bullishSignals += 2;
+  else bearishSignals += 2;
   
-  if (rsi < 30) bullishSignals += 2;
-  else if (rsi > 70) bearishSignals += 2;
+  // MACD
+  if (macd.histogram > 0 && macd.macdLine > macd.signalLine) bullishSignals += 2.5;
+  else if (macd.histogram < 0 && macd.macdLine < macd.signalLine) bearishSignals += 2.5;
   
-  if (bullishSignals > bearishSignals + 1) trend = "BULLISH";
-  else if (bearishSignals > bullishSignals + 1) trend = "BEARISH";
+  // RSI (weighted based on extremes)
+  if (rsi < 30) bullishSignals += 3;
+  else if (rsi < 40) bullishSignals += 1;
+  else if (rsi > 70) bearishSignals += 3;
+  else if (rsi > 60) bearishSignals += 1;
+  
+  // Bollinger Bands
+  if (bollingerBands.percentB < 0.2) bullishSignals += 2;
+  else if (bollingerBands.percentB > 0.8) bearishSignals += 2;
+  
+  // Stochastic
+  if (stochastic.k < 20 && stochastic.d < 20) bullishSignals += 2;
+  else if (stochastic.k > 80 && stochastic.d > 80) bearishSignals += 2;
+  
+  if (stochastic.k > stochastic.d && stochastic.k < 50) bullishSignals += 1;
+  else if (stochastic.k < stochastic.d && stochastic.k > 50) bearishSignals += 1;
+  
+  // ADX for trend strength
+  if (adx > 25) {
+    if (bullishSignals > bearishSignals) bullishSignals += 1.5;
+    else bearishSignals += 1.5;
+  }
+  
+  if (bullishSignals > bearishSignals + 2) trend = "BULLISH";
+  else if (bearishSignals > bullishSignals + 2) trend = "BEARISH";
   
   const momentum: "STRONG" | "MODERATE" | "WEAK" = 
-    Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.5 ? "STRONG" :
-    Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.2 ? "MODERATE" : "WEAK";
+    adx > 40 || Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.5 ? "STRONG" :
+    adx > 25 || Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.2 ? "MODERATE" : "WEAK";
+  
+  const volatility: "HIGH" | "MEDIUM" | "LOW" = 
+    atr > bollingerBands.middle * 0.015 ? "HIGH" :
+    atr > bollingerBands.middle * 0.008 ? "MEDIUM" : "LOW";
   
   return {
     rsi,
     macd,
     sma20,
     sma50,
+    sma200,
     ema12,
     ema26,
+    bollingerBands,
+    stochastic,
+    atr,
+    adx,
     trend,
     momentum,
+    volatility,
   };
 }
 
@@ -373,60 +503,135 @@ export async function generateSignalAnalysis(
   let bullishScore = 0;
   let bearishScore = 0;
   
-  if (technicals.rsi < 30) {
+  // RSI Analysis (30 points max)
+  if (technicals.rsi < 25) {
+    bullishScore += 30;
+    reasoning.push(`RSI extremely oversold at ${technicals.rsi.toFixed(1)} - strong reversal signal`);
+  } else if (technicals.rsi < 30) {
     bullishScore += 25;
     reasoning.push(`RSI oversold at ${technicals.rsi.toFixed(1)} - potential reversal up`);
+  } else if (technicals.rsi < 40) {
+    bullishScore += 12;
+    reasoning.push(`RSI at ${technicals.rsi.toFixed(1)} - bullish bias`);
+  } else if (technicals.rsi > 75) {
+    bearishScore += 30;
+    reasoning.push(`RSI extremely overbought at ${technicals.rsi.toFixed(1)} - strong reversal signal`);
   } else if (technicals.rsi > 70) {
     bearishScore += 25;
     reasoning.push(`RSI overbought at ${technicals.rsi.toFixed(1)} - potential reversal down`);
-  } else if (technicals.rsi < 45) {
-    bullishScore += 10;
-    reasoning.push(`RSI at ${technicals.rsi.toFixed(1)} - slight bullish bias`);
-  } else if (technicals.rsi > 55) {
-    bearishScore += 10;
-    reasoning.push(`RSI at ${technicals.rsi.toFixed(1)} - slight bearish bias`);
+  } else if (technicals.rsi > 60) {
+    bearishScore += 12;
+    reasoning.push(`RSI at ${technicals.rsi.toFixed(1)} - bearish bias`);
   }
   
+  // MACD Analysis (25 points max)
   if (technicals.macd.histogram > 0 && technicals.macd.macdLine > technicals.macd.signalLine) {
-    bullishScore += 20;
-    reasoning.push("MACD bullish crossover confirmed");
+    bullishScore += 25;
+    reasoning.push("MACD bullish crossover with positive histogram");
   } else if (technicals.macd.histogram < 0 && technicals.macd.macdLine < technicals.macd.signalLine) {
-    bearishScore += 20;
-    reasoning.push("MACD bearish crossover confirmed");
+    bearishScore += 25;
+    reasoning.push("MACD bearish crossover with negative histogram");
   }
   
-  if (currentPrice > technicals.sma20 && currentPrice > technicals.sma50) {
+  // Moving Averages (20 points max)
+  if (currentPrice > technicals.sma20 && currentPrice > technicals.sma50 && currentPrice > technicals.sma200) {
+    bullishScore += 20;
+    reasoning.push("Price above all major MAs - strong uptrend");
+  } else if (currentPrice < technicals.sma20 && currentPrice < technicals.sma50 && currentPrice < technicals.sma200) {
+    bearishScore += 20;
+    reasoning.push("Price below all major MAs - strong downtrend");
+  } else if (currentPrice > technicals.sma20 && currentPrice > technicals.sma50) {
     bullishScore += 15;
-    reasoning.push("Price above both SMA20 and SMA50 - uptrend confirmed");
+    reasoning.push("Price above SMA20 and SMA50 - uptrend confirmed");
   } else if (currentPrice < technicals.sma20 && currentPrice < technicals.sma50) {
     bearishScore += 15;
-    reasoning.push("Price below both SMA20 and SMA50 - downtrend confirmed");
+    reasoning.push("Price below SMA20 and SMA50 - downtrend confirmed");
   }
   
+  // EMA Crossover (15 points max)
   if (technicals.ema12 > technicals.ema26) {
-    bullishScore += 10;
-    reasoning.push("EMA12 > EMA26 - short-term momentum bullish");
+    const gap = ((technicals.ema12 - technicals.ema26) / technicals.ema26) * 10000;
+    bullishScore += gap > 5 ? 15 : 10;
+    reasoning.push(`EMA12 > EMA26 - short-term bullish momentum${gap > 5 ? ' (strong)' : ''}`);
   } else {
-    bearishScore += 10;
-    reasoning.push("EMA12 < EMA26 - short-term momentum bearish");
+    const gap = ((technicals.ema26 - technicals.ema12) / technicals.ema12) * 10000;
+    bearishScore += gap > 5 ? 15 : 10;
+    reasoning.push(`EMA12 < EMA26 - short-term bearish momentum${gap > 5 ? ' (strong)' : ''}`);
   }
   
+  // Bollinger Bands (15 points max)
+  if (technicals.bollingerBands.percentB < 0.1) {
+    bullishScore += 15;
+    reasoning.push("Price near lower Bollinger Band - oversold condition");
+  } else if (technicals.bollingerBands.percentB < 0.2) {
+    bullishScore += 10;
+    reasoning.push("Price approaching lower Bollinger Band");
+  } else if (technicals.bollingerBands.percentB > 0.9) {
+    bearishScore += 15;
+    reasoning.push("Price near upper Bollinger Band - overbought condition");
+  } else if (technicals.bollingerBands.percentB > 0.8) {
+    bearishScore += 10;
+    reasoning.push("Price approaching upper Bollinger Band");
+  }
+  
+  // Stochastic Oscillator (15 points max)
+  if (technicals.stochastic.k < 20 && technicals.stochastic.d < 20) {
+    bullishScore += 15;
+    reasoning.push(`Stochastic oversold (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)})`);
+  } else if (technicals.stochastic.k > 80 && technicals.stochastic.d > 80) {
+    bearishScore += 15;
+    reasoning.push(`Stochastic overbought (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)})`);
+  }
+  
+  if (technicals.stochastic.k > technicals.stochastic.d && technicals.stochastic.k < 50) {
+    bullishScore += 8;
+    reasoning.push("Stochastic bullish crossover in oversold zone");
+  } else if (technicals.stochastic.k < technicals.stochastic.d && technicals.stochastic.k > 50) {
+    bearishScore += 8;
+    reasoning.push("Stochastic bearish crossover in overbought zone");
+  }
+  
+  // ADX Trend Strength (10 points max)
+  if (technicals.adx > 40) {
+    const multiplier = 1.5;
+    if (bullishScore > bearishScore) {
+      bullishScore += 10;
+      reasoning.push(`Very strong trend (ADX: ${technicals.adx.toFixed(1)}) - high conviction`);
+    } else {
+      bearishScore += 10;
+      reasoning.push(`Very strong trend (ADX: ${technicals.adx.toFixed(1)}) - high conviction`);
+    }
+  } else if (technicals.adx > 25) {
+    if (bullishScore > bearishScore) bullishScore += 5;
+    else bearishScore += 5;
+    reasoning.push(`Strong trend detected (ADX: ${technicals.adx.toFixed(1)})`);
+  }
+  
+  // Momentum boost
   if (technicals.momentum === "STRONG") {
-    if (bullishScore > bearishScore) bullishScore += 15;
-    else bearishScore += 15;
-    reasoning.push(`${technicals.momentum} momentum detected`);
+    if (bullishScore > bearishScore) bullishScore += 10;
+    else bearishScore += 10;
   }
   
   const signalType: "CALL" | "PUT" = bullishScore >= bearishScore ? "CALL" : "PUT";
-  const totalScore = bullishScore + bearishScore;
-  const confidence = Math.min(95, Math.max(60, 
-    50 + Math.abs(bullishScore - bearishScore) + (technicals.momentum === "STRONG" ? 10 : 0)
-  ));
+  const scoreDiff = Math.abs(bullishScore - bearishScore);
   
+  // Enhanced confidence calculation
+  let confidence = 50 + (scoreDiff * 0.4);
+  
+  if (technicals.adx > 40) confidence += 8;
+  else if (technicals.adx > 25) confidence += 5;
+  
+  if (technicals.momentum === "STRONG") confidence += 5;
+  if (technicals.volatility === "LOW") confidence += 3;
+  
+  confidence = Math.min(98, Math.max(62, Math.round(confidence)));
+  
+  // Dynamic stop loss and take profit based on volatility
   const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
-  const atr = calculateATR(candles, 14);
-  const slPips = Math.max(atr * 1.5, pipValue * 20);
-  const tpPips = slPips * 2;
+  const atrMultiplier = technicals.volatility === "HIGH" ? 2 : technicals.volatility === "MEDIUM" ? 1.5 : 1.2;
+  const slPips = Math.max(technicals.atr * atrMultiplier, pipValue * 15);
+  const tpPips = slPips * (confidence > 85 ? 2.5 : confidence > 75 ? 2 : 1.8);
   
   const entry = currentPrice;
   const stopLoss = signalType === "CALL" 
@@ -440,7 +645,7 @@ export async function generateSignalAnalysis(
     pair,
     currentPrice,
     signalType,
-    confidence: Math.round(confidence),
+    confidence,
     entry,
     stopLoss,
     takeProfit,
