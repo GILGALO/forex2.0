@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { FOREX_PAIRS, TIMEFRAMES, type Signal, type SignalType } from "@/lib/constants";
-import { Loader2, Target, ShieldAlert, Timer, Zap, Clock, Send, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { FOREX_PAIRS, TIMEFRAMES, type Signal } from "@/lib/constants";
+import { Loader2, Zap, Clock, Send, Activity, TrendingUp, TrendingDown, Target } from "lucide-react";
 import { format, addMinutes } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,11 +17,7 @@ interface SignalGeneratorProps {
 
 interface TechnicalAnalysis {
   rsi: number;
-  macd: {
-    macdLine: number;
-    signalLine: number;
-    histogram: number;
-  };
+  macd: { macdLine: number; signalLine: number; histogram: number };
   sma20: number;
   sma50: number;
   trend: "BULLISH" | "BEARISH" | "NEUTRAL";
@@ -49,9 +45,8 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const [autoMode, setAutoMode] = useState(false);
   const [scanMode, setScanMode] = useState(true);
   const [nextSignalTime, setNextSignalTime] = useState<number | null>(null);
-  const { toast } = useToast();
-
   const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/telegram/status')
@@ -65,27 +60,11 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const response = await fetch('/api/telegram/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signal,
-          analysis,
-          isAuto: autoMode,
-        }),
+        body: JSON.stringify({ signal, analysis, isAuto: autoMode }),
       });
-      
       const result = await response.json();
-      
       if (result.success) {
-        toast({
-          title: "Sent to Telegram",
-          description: "Signal broadcasted to channel successfully",
-        });
-      } else if (!telegramConfigured) {
-        console.log('Telegram not configured - signal generated locally only');
-      } else {
-        toast({
-          title: "Telegram Notice",
-          description: result.message || "Signal generated but Telegram delivery pending",
-        });
+        toast({ title: "Telegram", description: "Signal sent successfully" });
       }
     } catch (error) {
       console.error('Telegram send error', error);
@@ -107,7 +86,6 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ timeframe }),
         });
-        
         if (!scanResponse.ok) throw new Error('Scan failed');
         const scanData = await scanResponse.json();
         analysisResult = scanData.bestSignal;
@@ -120,7 +98,6 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pair: currentPair, timeframe }),
         });
-        
         if (!response.ok) throw new Error('Signal generation failed');
         analysisResult = await response.json();
       }
@@ -129,11 +106,8 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
       const now = new Date();
       let intervalMinutes = 5;
-      if (timeframe.startsWith('M')) {
-        intervalMinutes = parseInt(timeframe.substring(1));
-      } else if (timeframe.startsWith('H')) {
-        intervalMinutes = parseInt(timeframe.substring(1)) * 60;
-      }
+      if (timeframe.startsWith('M')) intervalMinutes = parseInt(timeframe.substring(1));
+      else if (timeframe.startsWith('H')) intervalMinutes = parseInt(timeframe.substring(1)) * 60;
 
       const minStartTime = addMinutes(now, 7);
       const intervalMs = intervalMinutes * 60 * 1000;
@@ -144,7 +118,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const signal: Signal = {
         id: Math.random().toString(36).substring(7),
         pair: analysisResult.pair,
-        timeframe: timeframe,
+        timeframe,
         type: analysisResult.signalType,
         entry: analysisResult.entry,
         stopLoss: analysisResult.stopLoss,
@@ -160,23 +134,14 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       onSignalGenerated(signal);
       sendToTelegram(signal, analysisResult);
 
-      if (isAuto) {
-        const nextTime = Date.now() + 7 * 60 * 1000;
-        setNextSignalTime(nextTime);
-      }
+      if (isAuto) setNextSignalTime(Date.now() + 7 * 60 * 1000);
     } catch (error) {
       console.error('Signal generation error:', error);
-      toast({
-        title: "Analysis Error",
-        description: "Failed to analyze market data. Retrying...",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Analysis failed. Please retry.", variant: "destructive" });
     } finally {
       setIsAnalyzing(false);
     }
   };
-
-  const handleGenerate = () => generateSignal(false);
 
   useEffect(() => {
     if (autoMode) {
@@ -184,13 +149,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
         generateSignal(true);
         setNextSignalTime(Date.now() + 7 * 60 * 1000);
       }
-
       const checkInterval = setInterval(() => {
-        if (nextSignalTime && Date.now() >= nextSignalTime && !isAnalyzing) {
-          generateSignal(true);
-        }
+        if (nextSignalTime && Date.now() >= nextSignalTime && !isAnalyzing) generateSignal(true);
       }, 1000);
-      
       return () => clearInterval(checkInterval);
     } else {
       setNextSignalTime(null);
@@ -204,7 +165,6 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
   const Countdown = () => {
     const [timeLeft, setTimeLeft] = useState("");
-
     useEffect(() => {
       if (!nextSignalTime) return;
       const interval = setInterval(() => {
@@ -215,70 +175,60 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       }, 1000);
       return () => clearInterval(interval);
     }, []);
-
     if (!nextSignalTime) return null;
-    return <span className="font-mono text-primary">{timeLeft}</span>;
+    return <span className="font-mono text-sm text-primary font-bold">{timeLeft}</span>;
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="border-primary/30 bg-card/80 glass-panel overflow-hidden relative rounded-none">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-80" />
-        <div className="scan-line opacity-20" />
-        
-        <CardContent className="p-6 space-y-6 relative z-20">
-          <div className="flex items-center justify-between bg-black/40 p-4 border border-primary/20 backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center gap-3 relative z-10">
-              <div className={`p-2 rounded bg-background border border-border ${autoMode ? "border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.2)]" : ""}`}>
-                <Zap className={`w-5 h-5 ${autoMode ? "text-yellow-400 fill-yellow-400 animate-pulse" : "text-muted-foreground"}`} />
+    <div className="space-y-4">
+      <Card className="border-primary/20 bg-card/90 backdrop-blur-sm overflow-hidden">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border/50">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${autoMode ? "bg-yellow-500/20 border-yellow-500/50" : "bg-muted/50"} border transition-colors`}>
+                <Zap className={`w-4 h-4 ${autoMode ? "text-yellow-400" : "text-muted-foreground"}`} />
               </div>
               <div>
-                <Label htmlFor="auto-mode" className="font-mono text-sm cursor-pointer font-bold tracking-wider text-foreground">AUTO-TRADE BOT</Label>
-                <div className="text-[10px] text-muted-foreground font-mono">REAL MARKET ANALYSIS</div>
+                <Label htmlFor="auto-mode" className="text-sm font-semibold cursor-pointer">Auto Mode</Label>
+                <p className="text-[10px] text-muted-foreground">Automated signals</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 relative z-10">
-              {autoMode && (
-                <div className="bg-black/50 px-3 py-1 border border-primary/30 text-primary font-mono text-sm shadow-[0_0_10px_rgba(0,255,255,0.1)]">
-                  <Countdown />
-                </div>
-              )}
-              <Switch id="auto-mode" checked={autoMode} onCheckedChange={setAutoMode} className="data-[state=checked]:bg-primary data-[state=checked]:shadow-[0_0_15px_cyan]" />
+            <div className="flex items-center gap-3">
+              {autoMode && <Countdown />}
+              <Switch id="auto-mode" checked={autoMode} onCheckedChange={setAutoMode} />
             </div>
           </div>
-          
+
           {autoMode && (
-             <div className="flex items-center justify-between pl-4 border-l-2 border-primary/50 ml-2 py-1">
-                <Label htmlFor="scan-mode" className="font-mono text-xs text-primary/80 cursor-pointer tracking-widest">SCAN ALL PAIRS</Label>
-                <Switch id="scan-mode" checked={scanMode} onCheckedChange={setScanMode} className="scale-75 origin-right data-[state=checked]:bg-secondary" />
-              </div>
+            <div className="flex items-center justify-between px-3 py-2 bg-primary/5 rounded border border-primary/20">
+              <Label htmlFor="scan-mode" className="text-xs text-primary cursor-pointer">Scan All Pairs</Label>
+              <Switch id="scan-mode" checked={scanMode} onCheckedChange={setScanMode} className="scale-90" />
+            </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-primary/60 uppercase tracking-widest">Asset Pair</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pair</label>
               <Select value={selectedPair} onValueChange={handlePairChange}>
-                <SelectTrigger className="bg-black/40 border-primary/30 font-mono h-12 focus:ring-primary/50 focus:border-primary transition-all">
+                <SelectTrigger className="h-11 bg-background/50 border-border/50 font-mono text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-primary/30">
+                <SelectContent>
                   {FOREX_PAIRS.map(pair => (
-                    <SelectItem key={pair} value={pair} className="font-mono focus:bg-primary/20 focus:text-primary">{pair}</SelectItem>
+                    <SelectItem key={pair} value={pair} className="font-mono">{pair}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-primary/60 uppercase tracking-widest">Timeframe</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Timeframe</label>
               <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="bg-black/40 border-primary/30 font-mono h-12 focus:ring-primary/50 focus:border-primary transition-all">
+                <SelectTrigger className="h-11 bg-background/50 border-border/50 font-mono text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-primary/30">
+                <SelectContent>
                   {TIMEFRAMES.map(tf => (
-                    <SelectItem key={tf} value={tf} className="font-mono focus:bg-primary/20 focus:text-primary">{tf}</SelectItem>
+                    <SelectItem key={tf} value={tf} className="font-mono">{tf}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -286,35 +236,38 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           </div>
 
           <Button 
-            className="w-full h-14 text-lg font-bold relative overflow-hidden group border border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary transition-all shadow-[0_0_20px_rgba(0,255,255,0.1)] hover:shadow-[0_0_30px_rgba(0,255,255,0.3)] rounded-none" 
-            onClick={handleGenerate}
+            className="w-full h-12 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => generateSignal(false)}
             disabled={isAnalyzing || autoMode}
           >
             {isAnalyzing ? (
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="tracking-widest">ANALYZING LIVE MARKET...</span>
-              </div>
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Analyzing...
+              </span>
             ) : autoMode ? (
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Clock className="h-6 w-6 text-primary animate-pulse" />
-                  <div className="absolute inset-0 bg-primary/50 blur-lg animate-pulse" />
-                </div>
-                <span className="tracking-widest text-primary drop-shadow-[0_0_5px_cyan]">AUTO PILOT ENGAGED</span>
-              </div>
+              <span className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Auto Mode Active
+              </span>
             ) : (
-              <>
-                <span className="relative z-10 tracking-[0.2em] drop-shadow-[0_0_5px_rgba(0,0,0,1)]">ANALYZE REAL MARKET</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/40 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-                <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-              </>
+              <span className="flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Generate Signal
+              </span>
             )}
           </Button>
-          
-          <div className="text-[10px] text-center font-mono text-emerald-400/70 uppercase tracking-widest mt-4 flex items-center justify-center gap-2">
-            <Activity className="w-3 h-3" />
-            Live Market Analysis Active
+
+          <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+            <Activity className="w-3 h-3 text-emerald-500" />
+            <span>Live Market Analysis</span>
+            {telegramConfigured && (
+              <>
+                <span className="text-border">|</span>
+                <Send className="w-3 h-3 text-primary" />
+                <span>Telegram Connected</span>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -322,112 +275,97 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       <AnimatePresence mode="wait">
         {lastSignal && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(10px)" }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
           >
-            <Card className={`border-2 ${lastSignal.type === "CALL" ? "border-emerald-500 bg-emerald-950/30" : "border-rose-500 bg-rose-950/30"} overflow-hidden relative backdrop-blur-xl rounded-none shadow-[0_0_50px_rgba(0,0,0,0.5)]`}>
-              <motion.div 
-                className={`absolute top-0 left-0 w-full h-full bg-gradient-to-b ${lastSignal.type === "CALL" ? "from-emerald-500/10" : "from-rose-500/10"} to-transparent pointer-events-none`}
-                animate={{ opacity: [0.3, 0.1, 0.3], backgroundPosition: ["0% 0%", "0% 100%"] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              
-              <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 ${lastSignal.type === "CALL" ? "border-emerald-500" : "border-rose-500"}`} />
-              <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 ${lastSignal.type === "CALL" ? "border-emerald-500" : "border-rose-500"}`} />
-              <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 ${lastSignal.type === "CALL" ? "border-emerald-500" : "border-rose-500"}`} />
-              <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 ${lastSignal.type === "CALL" ? "border-emerald-500" : "border-rose-500"}`} />
-
-              <CardContent className="p-6 relative z-10">
-                <div className="flex justify-between items-start mb-6 border-b border-white/5 pb-4">
-                  <div>
-                    <h3 className="text-[10px] font-mono text-muted-foreground mb-1 uppercase tracking-[0.2em]">Signal Direction</h3>
-                    <div className="flex items-baseline gap-3">
-                      <span className={`text-5xl font-black tracking-tighter ${lastSignal.type === "CALL" ? "text-emerald-500 neon-text-green" : "text-rose-500 neon-text-red"}`}>
-                        {lastSignal.type}
-                      </span>
-                      <span className="text-2xl font-mono font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
-                        {lastSignal.pair}
-                      </span>
+            <Card className={`border-2 overflow-hidden ${lastSignal.type === "CALL" ? "border-emerald-500/50 bg-emerald-950/20" : "border-rose-500/50 bg-rose-950/20"}`}>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-lg ${lastSignal.type === "CALL" ? "bg-emerald-500/20" : "bg-rose-500/20"}`}>
+                      {lastSignal.type === "CALL" ? (
+                        <TrendingUp className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <TrendingDown className="w-5 h-5 text-rose-500" />
+                      )}
                     </div>
-                    <div className="mt-3 flex items-center gap-3 text-xs font-mono bg-black/30 p-2 rounded border border-white/5 inline-flex">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-primary" />
-                        <span className="text-white">{lastSignal.startTime}</span>
+                    <div>
+                      <div className={`text-2xl sm:text-3xl font-black ${lastSignal.type === "CALL" ? "text-emerald-500" : "text-rose-500"}`}>
+                        {lastSignal.type}
                       </div>
-                      <div className="w-4 h-[1px] bg-white/20" />
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-3 h-3 text-primary" />
-                        <span className="text-white">{lastSignal.endTime}</span>
-                      </div>
+                      <div className="text-sm font-mono text-muted-foreground">{lastSignal.pair}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] font-mono text-muted-foreground mb-1 uppercase tracking-widest">Confidence</div>
-                    <div className="text-3xl font-bold text-primary neon-text-cyan">{lastSignal.confidence}%</div>
-                    {telegramConfigured && (
-                      <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-emerald-400 uppercase tracking-wider">
-                        <Send className="w-3 h-3" /> Telegram Sent
-                      </div>
-                    )}
+                    <div className="text-2xl sm:text-3xl font-bold text-primary">{lastSignal.confidence}%</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Confidence</div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-4 text-xs font-mono text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  <span>{lastSignal.startTime} - {lastSignal.endTime}</span>
+                  <span className="text-border">|</span>
+                  <span>{lastSignal.timeframe}</span>
+                  {telegramConfigured && (
+                    <>
+                      <span className="text-border">|</span>
+                      <Send className="w-3 h-3 text-emerald-500" />
+                    </>
+                  )}
                 </div>
 
                 {lastAnalysis && (
-                  <div className="mb-4 p-3 bg-black/40 border border-white/10 rounded">
-                    <div className="text-[10px] font-mono text-primary/80 uppercase tracking-widest mb-2 flex items-center gap-2">
-                      <Activity className="w-3 h-3" /> Technical Analysis
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs font-mono mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">RSI:</span>
-                        <span className={lastAnalysis.technicals.rsi < 30 ? "text-emerald-400" : lastAnalysis.technicals.rsi > 70 ? "text-rose-400" : "text-white"}>
-                          {lastAnalysis.technicals.rsi.toFixed(1)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Trend:</span>
-                        <span className={lastAnalysis.technicals.trend === "BULLISH" ? "text-emerald-400" : lastAnalysis.technicals.trend === "BEARISH" ? "text-rose-400" : "text-yellow-400"}>
-                          {lastAnalysis.technicals.trend}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Momentum:</span>
-                        <span className={lastAnalysis.technicals.momentum === "STRONG" ? "text-primary" : "text-white"}>
-                          {lastAnalysis.technicals.momentum}
-                        </span>
+                  <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-background/30 rounded-lg text-center">
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase mb-1">RSI</div>
+                      <div className={`font-mono font-semibold ${lastAnalysis.technicals.rsi < 30 ? "text-emerald-400" : lastAnalysis.technicals.rsi > 70 ? "text-rose-400" : "text-foreground"}`}>
+                        {lastAnalysis.technicals.rsi.toFixed(1)}
                       </div>
                     </div>
-                    {lastAnalysis.reasoning.length > 0 && (
-                      <div className="space-y-1">
-                        {lastAnalysis.reasoning.slice(0, 3).map((reason, i) => (
-                          <div key={i} className="text-[10px] text-muted-foreground flex items-start gap-2">
-                            <span className="text-primary">•</span>
-                            <span>{reason}</span>
-                          </div>
-                        ))}
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase mb-1">Trend</div>
+                      <div className={`font-semibold text-sm ${lastAnalysis.technicals.trend === "BULLISH" ? "text-emerald-400" : lastAnalysis.technicals.trend === "BEARISH" ? "text-rose-400" : "text-yellow-400"}`}>
+                        {lastAnalysis.technicals.trend}
                       </div>
-                    )}
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase mb-1">Momentum</div>
+                      <div className="font-semibold text-sm">{lastAnalysis.technicals.momentum}</div>
+                    </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-black/40 border border-white/5 text-center relative group overflow-hidden">
-                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Entry</div>
-                    <div className="font-mono font-bold text-lg text-white">{lastSignal.entry.toFixed(5)}</div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="p-3 bg-background/40 rounded-lg text-center">
+                    <div className="text-[10px] text-muted-foreground uppercase mb-1">Entry</div>
+                    <div className="font-mono font-bold text-sm sm:text-base">{lastSignal.entry.toFixed(5)}</div>
                   </div>
-                  <div className="p-3 bg-black/40 border border-rose-500/20 text-center relative group overflow-hidden">
-                    <div className="absolute inset-0 bg-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-[10px] text-rose-400 uppercase tracking-widest mb-1">Stop Loss</div>
-                    <div className="font-mono font-bold text-lg text-rose-400">{lastSignal.stopLoss.toFixed(5)}</div>
+                  <div className="p-3 bg-rose-500/10 rounded-lg text-center border border-rose-500/20">
+                    <div className="text-[10px] text-rose-400 uppercase mb-1">Stop Loss</div>
+                    <div className="font-mono font-bold text-sm sm:text-base text-rose-400">{lastSignal.stopLoss.toFixed(5)}</div>
                   </div>
-                  <div className="p-3 bg-black/40 border border-emerald-500/20 text-center relative group overflow-hidden">
-                    <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-[10px] text-emerald-400 uppercase tracking-widest mb-1">Take Profit</div>
-                    <div className="font-mono font-bold text-lg text-emerald-400">{lastSignal.takeProfit.toFixed(5)}</div>
+                  <div className="p-3 bg-emerald-500/10 rounded-lg text-center border border-emerald-500/20">
+                    <div className="text-[10px] text-emerald-400 uppercase mb-1">Take Profit</div>
+                    <div className="font-mono font-bold text-sm sm:text-base text-emerald-400">{lastSignal.takeProfit.toFixed(5)}</div>
                   </div>
                 </div>
+
+                {lastAnalysis && lastAnalysis.reasoning.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/30">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Analysis</div>
+                    <div className="space-y-1.5">
+                      {lastAnalysis.reasoning.slice(0, 3).map((reason, i) => (
+                        <div key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary mt-0.5">•</span>
+                          <span>{reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
