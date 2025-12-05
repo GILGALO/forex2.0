@@ -138,8 +138,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const intervalMs = intervalMinutes * 60 * 1000;
       const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
 
-      // Times are already in local timezone (GMT-4)
-      const startTimeDate = new Date(nextCandleTimestamp);
+      // Convert UTC to GMT-4 (New York time) by subtracting 4 hours
+      const GMT_OFFSET_MS = -4 * 60 * 60 * 1000; // -4 hours in milliseconds
+      const startTimeDate = new Date(nextCandleTimestamp + GMT_OFFSET_MS);
       const endTimeDate = addMinutes(startTimeDate, 5);
 
       // Calculate next entry time for Martingale (next candle)
