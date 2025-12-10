@@ -732,10 +732,13 @@ export async function generateSignalAnalysis(
   const losingScore = Math.min(bullishScore, bearishScore);
   const scoreDiff = winningScore - losingScore;
   
+  // Enhanced confluence score calculation
   const confluenceScore = Math.round((winningScore / (winningScore + losingScore)) * 100);
   const alignedScore = Math.round((scoreDiff / 200) * 100);
   
+  // Candle pattern analysis - neutral patterns reduce confidence
   const hasPatternConfirmation = candlePattern && confirmingPatterns.includes(candlePattern) && candlePattern !== "doji";
+  const isNeutralPattern = candlePattern === "doji" || candlePattern === "spinning_top";
   const patternAligned = hasPatternConfirmation && 
     ((signalType === "CALL" && bullishPatterns.includes(candlePattern!)) ||
      (signalType === "PUT" && bearishPatterns.includes(candlePattern!)));
@@ -811,7 +814,48 @@ export async function generateSignalAnalysis(
     : currentPrice - tpPips;
   
   reasoning.push(`Pair accuracy: ${pairAccuracy} | Session: ${sessionTime}${strictMode ? ' (STRICT)' : ''}`);
-  reasoning.push(`Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)}`);
+  // EXTREME RSI/STOCHASTIC PENALTY
+  let extremePenalty = 0;
+  if (technicals.rsi > 90 || technicals.stochastic.k > 90 || technicals.stochastic.d > 90) {
+    extremePenalty = 10;
+    reasoning.push("⚠ Extreme overbought - reduced confidence by 10%");
+  } else if (technicals.rsi < 10 || technicals.stochastic.k < 10 || technicals.stochastic.d < 10) {
+    extremePenalty = 10;
+    reasoning.push("⚠ Extreme oversold - reduced confidence by 10%");
+  }
+  
+  // NEUTRAL CANDLE PATTERN PENALTY
+  let neutralPatternPenalty = 0;
+  if (isNeutralPattern) {
+    neutralPatternPenalty = 8;
+    reasoning.push("⚠ Neutral candle pattern (doji/spinning top) - reduced confidence by 8%");
+  }
+  
+  // Apply all penalties
+  confidence = Math.max(45, confidence - extremePenalty - neutralPatternPenalty);
+  
+  // STRICT CONFIDENCE CAPPING based on confluence
+  if (scoreDiff < 20) {
+    confidence = Math.min(confidence, 56);
+    reasoning.push("Low score difference (<20) - confidence capped at 56%");
+  } else if (scoreDiff < 40) {
+    confidence = Math.min(confidence, 70);
+    reasoning.push("Medium score difference (20-40) - confidence capped at 70%");
+  } else if (scoreDiff < 60) {
+    confidence = Math.min(confidence, 85);
+    reasoning.push("Good score difference (40-60) - confidence capped at 85%");
+  } else {
+    confidence = Math.min(confidence, 98);
+  }
+  
+  // STRICT MODE for low accuracy pairs or weak sessions
+  if (strictMode) {
+    confidence = Math.max(45, confidence - 20);
+    confidence = Math.min(confidence, 55);
+    reasoning.push("⚠ STRICT MODE: Medium/Low accuracy pair in afternoon - confidence reduced by 20% and capped at 55%");
+  }
+  
+  reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence}%`);
   
   return {
     pair,

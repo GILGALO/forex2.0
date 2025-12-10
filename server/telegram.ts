@@ -134,18 +134,13 @@ export async function sendToTelegram(
       message += `• Trade skipped if pair had consecutive losses, news event, or correlated conflict.\n\n`;
     }
 
-    message += `📌 Notes:\n`;
-    message += `- Fixed stake only (no martingale)\n`;
-    message += `- ${signal.timeframe} trade; adaptive TP/SL based on volatility\n`;
-    message += `- Historical accuracy considered for session and pair\n`;
-
-    if (signal.martingale) {
-      message += `\n🔄 Martingale Info:\n`;
-      message += `- Entry #${signal.martingale.entryNumber}\n`;
-      if (signal.martingale.canEnterNext && signal.martingale.nextEntryTime) {
-        message += `- Next entry available at: ${signal.martingale.nextEntryTime}\n`;
-      }
-    }
+    message += `📌 Trading Rules:\n`;
+    message += `- ✅ FIXED STAKE ONLY (No Martingale)\n`;
+    message += `- ✅ M5 TIMEFRAME (5-minute trades for accuracy)\n`;
+    message += `- ✅ KENYA TIME (EAT, UTC+3)\n`;
+    message += `- ✅ Adaptive TP/SL based on volatility & trend strength\n`;
+    message += `- ✅ Confluence-based confidence scoring\n`;
+    message += `- ✅ Session hot-zone filtering applied\n`;
 
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,

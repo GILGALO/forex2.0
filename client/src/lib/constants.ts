@@ -9,8 +9,8 @@ export const TIMEFRAMES = [
 ] as const;
 
 export const MARTINGALE_CONFIG = {
-  enabled: true,
-  maxEntries: 3, // Maximum number of consecutive entries (candles)
+  enabled: false, // DISABLED: Fixed stake only for maximum accuracy
+  maxEntries: 1, // Single entry per signal
   timeframeMinutes: {
     M1: 1,
     M5: 5,

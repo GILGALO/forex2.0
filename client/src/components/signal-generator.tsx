@@ -40,7 +40,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const [currentSession, setCurrentSession] = useState(getCurrentSession());
   const [availablePairs, setAvailablePairs] = useState<string[]>(currentSession.pairs);
   const [selectedPair, setSelectedPair] = useState<string>(currentSession.pairs[0]);
-  const [timeframe, setTimeframe] = useState<string>(TIMEFRAMES[1]);
+  const [timeframe, setTimeframe] = useState<string>("M5"); // Locked to M5 for accuracy
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastSignal, setLastSignal] = useState<Signal | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<SignalAnalysisResponse | null>(null);
@@ -161,12 +161,8 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
         timestamp: Date.now(),
         startTime: format(startTimeDate, "HH:mm"),
         endTime: format(endTimeDate, "HH:mm"),
-        status: "active",
-        martingale: {
-          entryNumber: 1,
-          canEnterNext: true,
-          nextEntryTime: format(nextCandleTime, "HH:mm")
-        }
+        status: "active"
+        // Martingale disabled - fixed stake only
       };
 
       setLastSignal(signal);
@@ -290,16 +286,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Timeframe</label>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="h-11 bg-background/50 border-border/50 font-mono text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIMEFRAMES.map(tf => (
-                    <SelectItem key={tf} value={tf} className="font-mono">{tf}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="h-11 bg-primary/10 border border-primary/30 rounded-md flex items-center justify-center">
+                <span className="font-mono text-sm font-bold text-primary">M5 (FIXED)</span>
+              </div>
             </div>
           </div>
 
@@ -377,22 +366,10 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                   <span>{lastSignal.startTime} - {lastSignal.endTime}</span>
                   <span className="text-border">|</span>
                   <span>{lastSignal.timeframe}</span>
-                  {lastSignal.martingale && (
-                    <>
-                      <span className="text-border">|</span>
-                      <span className="text-primary font-semibold">
-                        Entry #{lastSignal.martingale.entryNumber}
-                      </span>
-                      {lastSignal.martingale.canEnterNext && lastSignal.martingale.nextEntryTime && (
-                        <>
-                          <span className="text-border">|</span>
-                          <span className="text-yellow-400">
-                            Next: {lastSignal.martingale.nextEntryTime}
-                          </span>
-                        </>
-                      )}
-                    </>
-                  )}
+                  <span className="text-border">|</span>
+                  <span className="text-emerald-400 font-semibold">
+                    FIXED STAKE
+                  </span>
                   {telegramConfigured && (
                     <>
                       <span className="text-border">|</span>
@@ -453,21 +430,19 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
               </CardContent>
             </Card>
 
-            <Card className="mt-3 border-yellow-500/30 bg-yellow-950/10">
+            <Card className="mt-3 border-emerald-500/30 bg-emerald-950/10">
               <CardContent className="p-3">
                 <div className="flex items-start gap-2">
-                  <div className="p-1.5 rounded bg-yellow-500/20 mt-0.5">
-                    <Target className="w-3 h-3 text-yellow-400" />
+                  <div className="p-1.5 rounded bg-emerald-500/20 mt-0.5">
+                    <Target className="w-3 h-3 text-emerald-400" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-xs font-semibold text-yellow-400 mb-1">Martingale System Active</h4>
+                    <h4 className="text-xs font-semibold text-emerald-400 mb-1">Fixed Stake Trading (No Martingale)</h4>
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      • <strong>Entry #{lastSignal.martingale?.entryNumber || 1}:</strong> Enter at {lastSignal.startTime}<br/>
-                      {lastSignal.martingale?.canEnterNext && lastSignal.martingale.nextEntryTime && (
-                        <>• If this loses, enter <strong>next candle at {lastSignal.martingale.nextEntryTime}</strong><br/></>
-                      )}
-                      • Maximum 3 consecutive entries per signal<br/>
-                      • Same direction ({lastSignal.type}) for all entries
+                      • <strong>M5 Timeframe:</strong> 5-minute trades only<br/>
+                      • <strong>Kenya Time (EAT):</strong> All times in UTC+3<br/>
+                      • <strong>Entry:</strong> {lastSignal.startTime} - {lastSignal.endTime}<br/>
+                      • <strong>Risk Management:</strong> Single entry per signal
                     </p>
                   </div>
                 </div>
