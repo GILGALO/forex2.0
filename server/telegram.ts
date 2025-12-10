@@ -6,10 +6,9 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 function getConfidenceEmoji(confidence: number): string {
-  if (confidence >= 85) return "🔥🔥🔥";
-  if (confidence >= 75) return "🔥🔥";
-  if (confidence >= 65) return "🔥";
-  return "⚡";
+  if (confidence >= 90) return "🔥";
+  if (confidence >= 70) return "⚡";
+  return "⚠";
 }
 
 function getRSIStatus(rsi: number): string {
@@ -34,6 +33,25 @@ function getSMAStatus(price: number, sma20: number, sma50: number, sma200: numbe
   if (price > sma20 && price > sma50) return "Above SMA20/50";
   if (price < sma20 && price < sma50) return "Below SMA20/50";
   return "Mixed";
+}
+
+function isSessionHotZone(): { isHotZone: boolean; session: string } {
+  const hour = new Date().getUTCHours();
+  let session = "EVENING";
+  let isHotZone = false;
+  
+  if (hour >= 7 && hour < 12) {
+    session = "MORNING";
+    isHotZone = true; // London session
+  } else if (hour >= 12 && hour < 17) {
+    session = "AFTERNOON";
+    isHotZone = true; // London + New York overlap
+  } else {
+    session = "EVENING";
+    isHotZone = false; // Asian session - lower volume
+  }
+  
+  return { isHotZone, session };
 }
 
 export async function sendToTelegram(
@@ -85,15 +103,26 @@ export async function sendToTelegram(
       message += `• ADX: ${tech.adx.toFixed(1)} (${tech.adx > 25 ? "Strong" : "Weak"} Trend)\n`;
       
       const candlePattern = tech.candlePattern ? tech.candlePattern.replace(/_/g, ' ').toUpperCase() : "NONE";
-      message += `• Candle Pattern: ${candlePattern}\n\n`;
-
-      // Strict mode notes
-      const hour = new Date().getUTCHours();
-      let session = "EVENING";
-      if (hour >= 7 && hour < 12) session = "MORNING";
-      else if (hour >= 12 && hour < 17) session = "AFTERNOON";
+      message += `• Candle Pattern: ${candlePattern}\n`;
       
-      message += `⚡ Strict Mode Notes: ${session === "AFTERNOON" ? "Active - Higher threshold required" : "Standard analysis"}\n\n`;
+      // Warnings for extreme overbought/oversold
+      if (tech.rsi > 90 || tech.stochastic.k > 90) {
+        message += `\n⚠️ CAUTION: Extreme overbought detected - monitor for early reversal\n`;
+      } else if (tech.rsi < 10 || tech.stochastic.k < 10) {
+        message += `\n⚠️ CAUTION: Extreme oversold detected - monitor for early reversal\n`;
+      }
+      
+      // Doji warning
+      if (tech.candlePattern === "doji") {
+        message += `⚠️ NOTE: Doji pattern shows indecision - entry timing critical\n`;
+      }
+      
+      message += `\n`;
+
+      // Session hot-zone info
+      const { isHotZone, session } = isSessionHotZone();
+      message += `⚡ Strict Mode Notes: ${session === "AFTERNOON" ? "Active - Higher threshold required" : "Standard analysis"}\n`;
+      message += `🌍 Session Hot-Zone: ${isHotZone ? "YES ✅" : "NO"} (${session})\n\n`;
 
       // Analysis details
       message += `🔍 Analysis:\n`;
