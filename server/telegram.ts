@@ -106,11 +106,24 @@ export async function sendToTelegram(
     // Core Signal Info
     message += `📊 <b>Pair:</b> ${signal.pair}\n`;
     message += `⚡ <b>Signal:</b> ${signal.type === "CALL" ? "BUY 📈" : "SELL 📉"}\n`;
-    message += `📉 <b>Timeframe:</b> ${signal.timeframe} (M5)\n\n`;
+    message += `📉 <b>Timeframe:</b> ${signal.timeframe} (M5 ONLY)\n\n`;
 
     // Kenya Time Start/End
     message += `⏰ <b>Kenya Time Start:</b> ${formatKenyaTime(new Date(signal.startTime))} EAT\n`;
     message += `⏰ <b>Kenya Time End:</b> ${formatKenyaTime(new Date(signal.endTime))} EAT\n\n`;
+    
+    // Higher Timeframe Alignment Status
+    if (analysis?.reasoning) {
+      const htfMatch = analysis.reasoning.find(r => r.includes("HTF Alignment:"));
+      if (htfMatch) {
+        message += `🔄 <b>Multi-Timeframe:</b> ${htfMatch.split('|')[0].replace('HTF Alignment:', '').trim()}\n`;
+        const candleStrengthMatch = htfMatch.match(/Candle Strength: (\d+)/);
+        if (candleStrengthMatch) {
+          message += `📊 <b>Candle Confirmation:</b> ${candleStrengthMatch[1]} consecutive strong candles\n`;
+        }
+        message += `\n`;
+      }
+    }
 
     // Trade Levels
     message += `🎯 <b>Entry:</b> ${signal.entry.toFixed(5)}\n`;
@@ -181,8 +194,11 @@ export async function sendToTelegram(
     message += `✅ FIXED STAKE ONLY (No Martingale)\n`;
     message += `✅ M5 TIMEFRAME ONLY\n`;
     message += `✅ KENYA TIME (EAT, UTC+3)\n`;
-    message += `✅ Confluence-based scoring\n`;
-    message += `✅ Session risk filtering\n`;
+    message += `✅ Multi-timeframe alignment (M15/H1)\n`;
+    message += `✅ 2-3 consecutive strong candles required\n`;
+    message += `✅ Enhanced confluence scoring\n`;
+    message += `✅ Dynamic extreme zone filters\n`;
+    message += `✅ Session-based pair prioritization\n`;
 
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,

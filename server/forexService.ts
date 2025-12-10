@@ -58,6 +58,7 @@ function validateSignal(
 }
 
 import { log } from "./index";
+import { logTrade, getPerformanceStats, getBestPerformingSetups } from "./tradeLog";
 
 export interface ForexQuote {
   pair: string;
@@ -744,24 +745,58 @@ export async function generateSignalAnalysis(
   const technicals = analyzeTechnicals(candles);
   const currentPrice = candles[candles.length - 1].close;
   
+  // MULTI-TIMEFRAME ALIGNMENT: Check M15 and H1 trends
+  const candlesM15 = await getForexCandles(pair, "15min", apiKey);
+  const candlesH1 = await getForexCandles(pair, "60min", apiKey);
+  const technicalsM15 = analyzeTechnicals(candlesM15);
+  const technicalsH1 = analyzeTechnicals(candlesH1);
+  
+  const m5Trend = technicals.supertrend.direction;
+  const m15Trend = technicalsM15.supertrend.direction;
+  const h1Trend = technicalsH1.supertrend.direction;
+  
+  // Higher timeframe alignment check
+  const isHTFAligned = (m5Trend === m15Trend) && (m5Trend === h1Trend);
+  const isPartiallyAligned = (m5Trend === m15Trend) || (m5Trend === h1Trend);
+  
   const pairAccuracy = getPairAccuracy(pair);
   const sessionTime = getCurrentSessionTime();
   const strictMode = sessionTime === "AFTERNOON" && (pairAccuracy === "MEDIUM" || pairAccuracy === "LOW");
   
-  // ===== NEW RISK MANAGEMENT FILTERS =====
+  // ===== ENHANCED RISK MANAGEMENT FILTERS =====
   const reasoning: string[] = [];
   let skipTrade = false;
   let skipReason = "";
   
-  // 1. EXTREME RSI/STOCHASTIC SKIP (>97 or <3)
-  if (technicals.rsi > 97 || technicals.stochastic.k > 97 || technicals.stochastic.d > 97) {
+  // 0. MULTI-TIMEFRAME ALIGNMENT CHECK (CRITICAL)
+  if (!isHTFAligned) {
+    skipTrade = true;
+    skipReason = `SKIP: Higher timeframe conflict - M5:${m5Trend}, M15:${m15Trend}, H1:${h1Trend}`;
+    reasoning.push(skipReason);
+  }
+  
+  // 1. EXTREME RSI/STOCHASTIC SKIP (>97 or <3) - DYNAMIC THRESHOLDS
+  const rsiUpperExtreme = pair.includes("JPY") ? 96 : 97;
+  const rsiLowerExtreme = pair.includes("JPY") ? 4 : 3;
+  
+  if (technicals.rsi > rsiUpperExtreme || technicals.stochastic.k > 97 || technicals.stochastic.d > 97) {
     skipTrade = true;
     skipReason = `SKIP: Extreme overbought (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)}, D: ${technicals.stochastic.d.toFixed(1)})`;
     reasoning.push(skipReason);
   }
-  if (technicals.rsi < 3 || technicals.stochastic.k < 3 || technicals.stochastic.d < 3) {
+  if (technicals.rsi < rsiLowerExtreme || technicals.stochastic.k < 3 || technicals.stochastic.d < 3) {
     skipTrade = true;
     skipReason = `SKIP: Extreme oversold (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)}, D: ${technicals.stochastic.d.toFixed(1)})`;
+    reasoning.push(skipReason);
+  }
+  
+  // 1b. BOLLINGER BAND EXTREME ZONE FILTER
+  const isPriceOutsideBB = currentPrice > technicals.bollingerBands.upper || currentPrice < technicals.bollingerBands.lower;
+  const hasExtremeIndicators = technicals.rsi > 90 || technicals.rsi < 10 || 
+                               technicals.stochastic.k > 90 || technicals.stochastic.k < 10;
+  if (isPriceOutsideBB && hasExtremeIndicators) {
+    skipTrade = true;
+    skipReason = "SKIP: Price outside Bollinger Bands with extreme indicator readings";
     reasoning.push(skipReason);
   }
   
@@ -776,32 +811,79 @@ export async function generateSignalAnalysis(
     }
   }
   
-  // 3. CONSECUTIVE CANDLE CONFIRMATION (require 2 trend-confirming candles)
-  let hasConsecutiveConfirmation = false;
-  if (candles.length >= 3) {
-    const lastCandle = candles[candles.length - 1];
-    const prevCandle = candles[candles.length - 2];
-    const isBullishLast = lastCandle.close > lastCandle.open;
-    const isBullishPrev = prevCandle.close > prevCandle.open;
-    const isBearishLast = lastCandle.close < lastCandle.open;
-    const isBearishPrev = prevCandle.close < prevCandle.open;
-    hasConsecutiveConfirmation = (isBullishLast && isBullishPrev) || (isBearishLast && isBearishPrev);
+  // 2b. SESSION-BASED PAIR PRIORITIZATION
+  const sessionHour = getKenyaHour();
+  const isMorning = sessionHour >= 7 && sessionHour < 12;
+  const isAfternoon = sessionHour >= 12 && sessionHour < 17;
+  const isEvening = sessionHour >= 17 || sessionHour < 7;
+  
+  // Evening: only take high-accuracy pairs with strongest setups
+  if (isEvening && pairAccuracy !== "HIGH") {
+    skipTrade = true;
+    skipReason = "SKIP: Evening session - only HIGH accuracy pairs allowed";
+    reasoning.push(skipReason);
   }
   
-  // 4. AVOID INDECISION CANDLES IN EXTREME ZONES
+  // Afternoon: only high-confidence, high-accuracy pairs
+  if (isAfternoon && pairAccuracy === "LOW") {
+    skipTrade = true;
+    skipReason = "SKIP: Afternoon session - LOW accuracy pair blocked";
+    reasoning.push(skipReason);
+  }
+  
+  // 3. ENHANCED CONSECUTIVE CANDLE CONFIRMATION (require 2-3 strong candles)
+  let hasConsecutiveConfirmation = false;
+  let candleConfirmationStrength = 0;
+  
+  if (candles.length >= 4) {
+    const lastCandle = candles[candles.length - 1];
+    const prevCandle = candles[candles.length - 2];
+    const prev2Candle = candles[candles.length - 3];
+    
+    const isBullishLast = lastCandle.close > lastCandle.open && !isIndecisionCandle(lastCandle);
+    const isBullishPrev = prevCandle.close > prevCandle.open && !isIndecisionCandle(prevCandle);
+    const isBullishPrev2 = prev2Candle.close > prev2Candle.open && !isIndecisionCandle(prev2Candle);
+    
+    const isBearishLast = lastCandle.close < lastCandle.open && !isIndecisionCandle(lastCandle);
+    const isBearishPrev = prevCandle.close < prevCandle.open && !isIndecisionCandle(prevCandle);
+    const isBearishPrev2 = prev2Candle.close < prev2Candle.open && !isIndecisionCandle(prev2Candle);
+    
+    // Check 2 candle confirmation
+    if ((isBullishLast && isBullishPrev) || (isBearishLast && isBearishPrev)) {
+      hasConsecutiveConfirmation = true;
+      candleConfirmationStrength = 2;
+    }
+    
+    // Check 3 candle confirmation (stronger)
+    if ((isBullishLast && isBullishPrev && isBullishPrev2) || 
+        (isBearishLast && isBearishPrev && isBearishPrev2)) {
+      candleConfirmationStrength = 3;
+    }
+  }
+  
+  // 4. ONLY ALLOW STRONG CONTINUATION PATTERNS
+  const strongBullishPatterns = ["bullish_engulfing", "hammer", "morning_star"];
+  const strongBearishPatterns = ["bearish_engulfing", "shooting_star", "evening_star"];
+  const weakPatterns = ["doji", "spinning_top", "pin_bar_bullish", "pin_bar_bearish"];
+  
+  const hasStrongPattern = technicals.candlePattern && 
+    ([...strongBullishPatterns, ...strongBearishPatterns].includes(technicals.candlePattern));
+  const hasWeakPattern = technicals.candlePattern && weakPatterns.includes(technicals.candlePattern);
+  
+  // 5. AVOID INDECISION/WEAK CANDLES IN EXTREME ZONES
   const isExtremeZone = technicals.rsi > 90 || technicals.rsi < 10 || 
                         technicals.stochastic.k > 90 || technicals.stochastic.k < 10;
-  const indecisionPatterns = ["doji", "spinning_top"];
-  if (isExtremeZone && technicals.candlePattern && indecisionPatterns.includes(technicals.candlePattern)) {
+  
+  if (isExtremeZone && (hasWeakPattern || !hasStrongPattern)) {
     skipTrade = true;
-    skipReason = `Indecision candle (${technicals.candlePattern}) in extreme zone`;
+    skipReason = `Weak/indecision candle pattern in extreme zone`;
     reasoning.push("SKIP: " + skipReason);
   }
   
-  // 5. NO CONSECUTIVE CANDLE CONFIRMATION - skip trade
+  // 6. NO CONSECUTIVE CANDLE CONFIRMATION - skip trade
   if (!hasConsecutiveConfirmation && !skipTrade) {
     skipTrade = true;
-    skipReason = "No 2 consecutive trend-confirming candles for entry";
+    skipReason = "No 2+ consecutive strong trend-confirming candles for entry";
     reasoning.push("SKIP: " + skipReason);
   }
   
@@ -828,6 +910,32 @@ export async function generateSignalAnalysis(
   // ===== PROCEED WITH NORMAL ANALYSIS =====
   let bullishScore = 0;
   let bearishScore = 0;
+  
+  // HIGHER TIMEFRAME ALIGNMENT BONUS (CRITICAL)
+  if (isHTFAligned) {
+    if (m5Trend === "BULLISH") {
+      bullishScore += 50;
+      reasoning.push("✅ M5/M15/H1 all BULLISH - perfect alignment (+50)");
+    } else {
+      bearishScore += 50;
+      reasoning.push("✅ M5/M15/H1 all BEARISH - perfect alignment (+50)");
+    }
+  } else if (isPartiallyAligned) {
+    if (m5Trend === "BULLISH") bullishScore += 20;
+    else bearishScore += 20;
+    reasoning.push(`⚠ Partial HTF alignment: M5:${m5Trend}, M15:${m15Trend}, H1:${h1Trend} (+20)`);
+  }
+  
+  // CANDLE CONFIRMATION STRENGTH BONUS
+  if (candleConfirmationStrength === 3) {
+    if (m5Trend === "BULLISH") bullishScore += 25;
+    else bearishScore += 25;
+    reasoning.push("3 consecutive strong trend candles (+25)");
+  } else if (candleConfirmationStrength === 2) {
+    if (m5Trend === "BULLISH") bullishScore += 15;
+    else bearishScore += 15;
+    reasoning.push("2 consecutive strong trend candles (+15)");
+  }
   
   if (technicals.macd.histogram > 0 && technicals.macd.macdLine > technicals.macd.signalLine) {
     bullishScore += 40;
@@ -985,25 +1093,30 @@ export async function generateSignalAnalysis(
     if (hasPatternConfirmation && !patternAligned) confidence -= 5;
   }
   
-  // Extreme RSI/Stochastic blocking
-  const rsiExtreme = technicals.rsi > 97 || technicals.rsi < 3;
-  const stochExtreme = technicals.stochastic.k > 97 || technicals.stochastic.k < 3 || 
-                       technicals.stochastic.d > 97 || technicals.stochastic.d < 3;
+  // Extreme RSI/Stochastic blocking (already handled above in skipTrade)
   
-  if (rsiExtreme || stochExtreme) {
-    signalBlocked = true;
-    reasoning.push(`BLOCKED: Extreme overbought/oversold (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)})`);
-  }
-  
-  // Reduce confidence for high RSI/Stochastic (90-97 range)
-  const rsiHigh = technicals.rsi >= 90 && technicals.rsi <= 97;
-  const rsiLow = technicals.rsi >= 3 && technicals.rsi <= 10;
+  // Reduce confidence for high RSI/Stochastic (90-97 range) - STRONGER PENALTY
+  const rsiHigh = technicals.rsi >= 90 && technicals.rsi <= rsiUpperExtreme;
+  const rsiLow = technicals.rsi >= rsiLowerExtreme && technicals.rsi <= 10;
   const stochHigh = technicals.stochastic.k >= 90 || technicals.stochastic.d >= 90;
   const stochLow = technicals.stochastic.k <= 10 || technicals.stochastic.d <= 10;
   
-  if (rsiHigh || rsiLow || stochHigh || stochLow) {
-    confidence -= 7;
-    reasoning.push(`High RSI/Stochastic zone detected - confidence reduced by 7%`);
+  if (rsiHigh || rsiLow) {
+    confidence -= 12;
+    reasoning.push(`⚠ Extreme RSI zone (${technicals.rsi.toFixed(1)}) - confidence reduced by 12%`);
+  }
+  if (stochHigh || stochLow) {
+    confidence -= 10;
+    reasoning.push(`⚠ Extreme Stochastic zone - confidence reduced by 10%`);
+  }
+  
+  // Higher timeframe alignment boost
+  if (isHTFAligned) {
+    confidence += 15;
+    reasoning.push("✅ Perfect HTF alignment - confidence boosted by 15%");
+  } else if (!isPartiallyAligned) {
+    confidence -= 20;
+    reasoning.push("⚠ No HTF alignment - confidence reduced by 20%");
   }
   
   if (strictMode) {
@@ -1105,6 +1218,25 @@ export async function generateSignalAnalysis(
   }
   
   reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence}%`);
+  reasoning.push(`HTF Alignment: M5=${m5Trend}, M15=${m15Trend}, H1=${h1Trend} | Candle Strength: ${candleConfirmationStrength} | Session: ${sessionTime}`);
+  
+  // Log trade for adaptive learning (only if not skipped)
+  if (confidence > 0) {
+    logTrade({
+      pair,
+      signalType,
+      entry,
+      stopLoss,
+      takeProfit,
+      confidence,
+      rsi: technicals.rsi,
+      stochastic: technicals.stochastic,
+      candlePattern: technicals.candlePattern,
+      htfAlignment: `M5=${m5Trend},M15=${m15Trend},H1=${h1Trend}`,
+      session: sessionTime,
+      pairAccuracy: pairAccuracy
+    });
+  }
   
   return {
     pair,
