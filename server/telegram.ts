@@ -90,115 +90,221 @@ export async function sendToTelegram(
     const modeLabel = isAuto ? "AUTO" : "MANUAL";
     const { isHotZone, session } = isSessionHotZone();
 
-    // Extract confluence score from reasoning
+    // Extract advanced metrics from reasoning
     let confluenceScore = 70;
+    let htfAlignment = "Unknown";
+    let candleStrength = 0;
+    let scoreDiff = 0;
+    let riskReward = "1:2";
+    
     if (analysis?.reasoning) {
       const confluenceMatch = analysis.reasoning.find(r => r.includes("Final Confluence:"));
       if (confluenceMatch) {
         const match = confluenceMatch.match(/Final Confluence: (\d+)%/);
         if (match) confluenceScore = parseInt(match[1]);
+        
+        const scoreMatch = confluenceMatch.match(/Score diff: (\d+)/);
+        if (scoreMatch) scoreDiff = parseInt(scoreMatch[1]);
+        
+        const rrMatch = confluenceMatch.match(/R\/R: ([\d:.]+)/);
+        if (rrMatch) riskReward = rrMatch[1];
       }
-    }
-
-    let message = `🚀 NEW SIGNAL (${modeLabel})\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-    // Core Signal Info
-    message += `📊 <b>Pair:</b> ${signal.pair}\n`;
-    message += `⚡ <b>Signal:</b> ${signal.type === "CALL" ? "BUY 📈" : "SELL 📉"}\n`;
-    message += `📉 <b>Timeframe:</b> ${signal.timeframe} (M5 ONLY)\n\n`;
-
-    // Kenya Time Start/End
-    message += `⏰ <b>Kenya Time Start:</b> ${formatKenyaTime(new Date(signal.startTime))} EAT\n`;
-    message += `⏰ <b>Kenya Time End:</b> ${formatKenyaTime(new Date(signal.endTime))} EAT\n\n`;
-    
-    // Higher Timeframe Alignment Status
-    if (analysis?.reasoning) {
+      
       const htfMatch = analysis.reasoning.find(r => r.includes("HTF Alignment:"));
       if (htfMatch) {
-        message += `🔄 <b>Multi-Timeframe:</b> ${htfMatch.split('|')[0].replace('HTF Alignment:', '').trim()}\n`;
-        const candleStrengthMatch = htfMatch.match(/Candle Strength: (\d+)/);
-        if (candleStrengthMatch) {
-          message += `📊 <b>Candle Confirmation:</b> ${candleStrengthMatch[1]} consecutive strong candles\n`;
-        }
-        message += `\n`;
+        const alignmentPart = htfMatch.split('|')[0].replace('HTF Alignment:', '').trim();
+        htfAlignment = alignmentPart;
+        
+        const candleMatch = htfMatch.match(/Candle Strength: (\d+)/);
+        if (candleMatch) candleStrength = parseInt(candleMatch[1]);
       }
     }
 
-    // Trade Levels
-    message += `🎯 <b>Entry:</b> ${signal.entry.toFixed(5)}\n`;
-    message += `🛑 <b>Stop Loss:</b> ${signal.stopLoss.toFixed(5)}\n`;
-    message += `💰 <b>Take Profit:</b> ${signal.takeProfit.toFixed(5)}\n\n`;
+    // Build comprehensive message
+    let message = `🚀 <b>NEW SIGNAL ${modeLabel === "AUTO" ? "🤖" : "👤"}</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    // Confidence
-    message += `💪 <b>Confidence:</b> ${signal.confidence}% ${confidenceEmoji}\n`;
-    message += `📊 <b>Confluence Score:</b> ${confluenceScore}%\n\n`;
+    // Core Signal Info with enhanced visuals
+    message += `📊 <b>PAIR:</b> ${signal.pair}\n`;
+    message += `${signal.type === "CALL" ? "🟢" : "🔴"} <b>DIRECTION:</b> ${signal.type === "CALL" ? "BUY/CALL 📈" : "SELL/PUT 📉"}\n`;
+    message += `⏱ <b>TIMEFRAME:</b> M5 (5-Minute) ✅\n\n`;
+
+    // Kenya Time with day info
+    const startDate = new Date(signal.startTime);
+    const kenyaStart = getKenyaTime();
+    const dayName = kenyaStart.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Africa/Nairobi' });
+    message += `🕐 <b>START TIME:</b> ${formatKenyaTime(startDate)} EAT (${dayName})\n`;
+    message += `🏁 <b>EXPIRY TIME:</b> ${formatKenyaTime(new Date(signal.endTime))} EAT\n\n`;
+
+    // Multi-Timeframe Alignment (CRITICAL)
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `🔄 <b>TIMEFRAME ALIGNMENT</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `${htfAlignment}\n`;
+    if (candleStrength >= 3) {
+      message += `✅ <b>${candleStrength} Consecutive Strong Candles</b> - Excellent Confirmation!\n`;
+    } else if (candleStrength === 2) {
+      message += `✅ <b>${candleStrength} Consecutive Strong Candles</b> - Good Confirmation\n`;
+    }
+    message += `\n`;
+
+    // Trade Levels with pip calculations
+    const pipValue = signal.pair.includes("JPY") ? 0.01 : 0.0001;
+    const slPips = Math.abs(signal.entry - signal.stopLoss) / pipValue;
+    const tpPips = Math.abs(signal.takeProfit - signal.entry) / pipValue;
+    
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `💼 <b>TRADE SETUP</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `🎯 <b>ENTRY:</b> ${signal.entry.toFixed(5)}\n`;
+    message += `🛑 <b>STOP LOSS:</b> ${signal.stopLoss.toFixed(5)} (${slPips.toFixed(1)} pips)\n`;
+    message += `💰 <b>TAKE PROFIT:</b> ${signal.takeProfit.toFixed(5)} (${tpPips.toFixed(1)} pips)\n`;
+    message += `📊 <b>RISK/REWARD:</b> ${riskReward}\n\n`;
+
+    // Confidence & Quality Metrics
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `💪 <b>SIGNAL QUALITY</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `${confidenceEmoji} <b>CONFIDENCE:</b> ${signal.confidence}%\n`;
+    message += `📈 <b>CONFLUENCE:</b> ${confluenceScore}%\n`;
+    message += `⚖️ <b>SCORE DIFFERENCE:</b> ${scoreDiff}\n\n`;
 
     if (analysis?.technicals) {
       const tech = analysis.technicals;
 
       message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-      message += `📈 <b>TECHNICAL INDICATORS</b>\n`;
+      message += `📊 <b>TECHNICAL ANALYSIS</b>\n`;
       message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-      // RSI & Stochastic
-      message += `• <b>RSI:</b> ${tech.rsi.toFixed(1)} (${getRSIStatus(tech.rsi)})\n`;
-      message += `• <b>Stochastic K/D:</b> ${tech.stochastic.k.toFixed(1)} / ${tech.stochastic.d.toFixed(1)}\n`;
+      // Momentum Indicators
+      message += `<b>📉 MOMENTUM INDICATORS</b>\n`;
+      const rsiStatus = getRSIStatus(tech.rsi);
+      const rsiEmoji = tech.rsi > 70 ? "🔴" : tech.rsi < 30 ? "🟢" : "🟡";
+      message += `${rsiEmoji} <b>RSI (14):</b> ${tech.rsi.toFixed(1)} - ${rsiStatus}\n`;
+      
+      const stochStatus = tech.stochastic.k > 80 ? "Overbought" : tech.stochastic.k < 20 ? "Oversold" : "Neutral";
+      const stochEmoji = tech.stochastic.k > 80 ? "🔴" : tech.stochastic.k < 20 ? "🟢" : "🟡";
+      message += `${stochEmoji} <b>Stochastic:</b> K=${tech.stochastic.k.toFixed(1)}, D=${tech.stochastic.d.toFixed(1)} - ${stochStatus}\n`;
+      
+      const macdDirection = tech.macd.histogram > 0 ? "Bullish ↗️" : "Bearish ↘️";
+      message += `• <b>MACD:</b> ${macdDirection} (Hist: ${tech.macd.histogram.toFixed(5)})\n\n`;
 
-      // MACD
-      const macdDirection = tech.macd.histogram > 0 ? "Bullish" : "Bearish";
-      message += `• <b>MACD:</b> ${macdDirection} (Hist: ${tech.macd.histogram.toFixed(5)})\n`;
-
-      // Supertrend
-      message += `• <b>Supertrend:</b> ${tech.supertrend.direction}\n`;
-
-      // ADX
-      message += `• <b>ADX:</b> ${tech.adx.toFixed(1)} (${tech.adx > 40 ? "Very Strong" : tech.adx > 25 ? "Strong" : "Weak"} Trend)\n`;
-
-      // Bollinger
-      const bollingerStatus = getBollingerStatus(tech.bollingerBands.breakout, tech.bollingerBands.percentB);
-      message += `• <b>Bollinger:</b> ${bollingerStatus}\n`;
-
-      // SMA Status
+      // Trend Indicators
+      message += `<b>📈 TREND INDICATORS</b>\n`;
+      const supertrendEmoji = tech.supertrend.direction === "BULLISH" ? "🟢" : "🔴";
+      message += `${supertrendEmoji} <b>Supertrend:</b> ${tech.supertrend.direction}\n`;
+      
+      const adxStrength = tech.adx > 40 ? "Very Strong 💪" : tech.adx > 25 ? "Strong ⚡" : "Weak ⚠️";
+      message += `• <b>ADX:</b> ${tech.adx.toFixed(1)} - ${adxStrength} Trend\n`;
+      
       const smaStatus = getSMAStatus(analysis.currentPrice, tech.sma20, tech.sma50, tech.sma200);
-      message += `• <b>SMA Trend:</b> ${smaStatus}\n`;
+      message += `• <b>SMA Position:</b> ${smaStatus}\n\n`;
 
-      // Candle Pattern
+      // Volatility & Patterns
+      message += `<b>🎯 VOLATILITY & PATTERNS</b>\n`;
+      const bollingerStatus = getBollingerStatus(tech.bollingerBands.breakout, tech.bollingerBands.percentB);
+      const bbEmoji = tech.bollingerBands.breakout ? "⚡" : "📊";
+      message += `${bbEmoji} <b>Bollinger Bands:</b> ${bollingerStatus}\n`;
+      message += `• <b>Volatility:</b> ${tech.volatility} (ATR: ${(tech.atr * 10000).toFixed(1)} pips)\n`;
+      
       const candlePattern = tech.candlePattern ? tech.candlePattern.replace(/_/g, ' ').toUpperCase() : "None";
-      message += `• <b>Candle Pattern:</b> ${candlePattern}\n\n`;
+      const patternEmoji = candlePattern.includes("BULLISH") || candlePattern.includes("HAMMER") || candlePattern.includes("MORNING") ? "🟢" :
+                           candlePattern.includes("BEARISH") || candlePattern.includes("SHOOTING") || candlePattern.includes("EVENING") ? "🔴" : "⚪";
+      message += `${patternEmoji} <b>Candle Pattern:</b> ${candlePattern}\n`;
+      message += `• <b>Momentum:</b> ${tech.momentum}\n\n`;
 
-      // Risk Warnings
-      if (tech.rsi > 90 || tech.stochastic.k > 90 || tech.stochastic.d > 90) {
-        message += `⚠️ <b>CAUTION:</b> Extreme overbought - watch for reversal\n`;
-      } else if (tech.rsi < 10 || tech.stochastic.k < 10 || tech.stochastic.d < 10) {
-        message += `⚠️ <b>CAUTION:</b> Extreme oversold - watch for reversal\n`;
+      // Risk Warnings with enhanced visibility
+      const warnings: string[] = [];
+      
+      if (tech.rsi > 95 || tech.stochastic.k > 95 || tech.stochastic.d > 95) {
+        warnings.push("🚨 <b>EXTREME OVERBOUGHT</b> - High reversal risk!");
+      } else if (tech.rsi > 90 || tech.stochastic.k > 90) {
+        warnings.push("⚠️ <b>CAUTION:</b> Extreme overbought zone - monitor closely");
+      } else if (tech.rsi > 70) {
+        warnings.push("⚠️ Overbought territory - watch for potential reversal");
+      }
+      
+      if (tech.rsi < 5 || tech.stochastic.k < 5 || tech.stochastic.d < 5) {
+        warnings.push("🚨 <b>EXTREME OVERSOLD</b> - High reversal risk!");
+      } else if (tech.rsi < 10 || tech.stochastic.k < 10) {
+        warnings.push("⚠️ <b>CAUTION:</b> Extreme oversold zone - monitor closely");
+      } else if (tech.rsi < 30) {
+        warnings.push("⚠️ Oversold territory - watch for potential reversal");
       }
 
       if (tech.candlePattern === "doji" || tech.candlePattern === "spinning_top") {
-        message += `⚠️ <b>NOTE:</b> Indecision pattern - entry timing critical\n`;
+        warnings.push("⚠️ <b>Indecision pattern detected</b> - Entry timing is critical");
+      }
+      
+      if (tech.bollingerBands.breakout) {
+        warnings.push("⚡ <b>Bollinger breakout</b> - High volatility expected");
+      }
+      
+      if (tech.volatility === "HIGH") {
+        warnings.push("⚠️ <b>High volatility</b> - Wider stops recommended");
+      }
+      
+      if (warnings.length > 0) {
+        message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        message += `⚠️ <b>RISK WARNINGS</b>\n`;
+        message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        warnings.forEach(w => message += `${w}\n`);
+        message += `\n`;
       }
     }
 
-    // Session Info
-    message += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `🌍 <b>SESSION INFO</b>\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    message += `• <b>Session:</b> ${session}\n`;
-    message += `• <b>Hot Zone:</b> ${isHotZone ? "YES ✅" : "NO ⚠️"}\n`;
-    message += `• <b>Mode:</b> ${session === "AFTERNOON" ? "STRICT (85%+ required)" : "Standard"}\n\n`;
+    // Session Info with market context
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `🌍 <b>SESSION ANALYSIS</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    const sessionEmoji = session === "MORNING" ? "🌅" : session === "AFTERNOON" ? "☀️" : "🌙";
+    message += `${sessionEmoji} <b>Current Session:</b> ${session}\n`;
+    message += `${isHotZone ? "🔥" : "❄️"} <b>Market Activity:</b> ${isHotZone ? "HIGH (Hot Zone) ✅" : "LOW ⚠️"}\n`;
+    
+    const sessionInfo = session === "MORNING" ? "London session - Best accuracy expected (70-80%)" :
+                        session === "AFTERNOON" ? "London/NY overlap - Good volume, STRICT mode active" :
+                        "Asian session - Lower volume, only strongest setups";
+    message += `📊 <b>Info:</b> ${sessionInfo}\n`;
+    
+    if (session === "AFTERNOON") {
+      message += `🎯 <b>Filter Mode:</b> STRICT (85%+ confidence required)\n`;
+    } else if (session === "EVENING") {
+      message += `🎯 <b>Filter Mode:</b> ULTRA-STRICT (HIGH accuracy pairs only)\n`;
+    }
+    message += `\n`;
 
-    // Trading Rules
+    // Trading Rules - Enhanced
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `📌 <b>TRADING RULES</b>\n`;
+    message += `📋 <b>ACTIVE SAFETY RULES</b>\n`;
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `✅ FIXED STAKE ONLY (No Martingale)\n`;
-    message += `✅ M5 TIMEFRAME ONLY\n`;
-    message += `✅ KENYA TIME (EAT, UTC+3)\n`;
-    message += `✅ Multi-timeframe alignment (M15/H1)\n`;
-    message += `✅ 2-3 consecutive strong candles required\n`;
-    message += `✅ Enhanced confluence scoring\n`;
-    message += `✅ Dynamic extreme zone filters\n`;
-    message += `✅ Session-based pair prioritization\n`;
+    message += `✅ <b>Fixed Stakes Only</b> - NO Martingale\n`;
+    message += `✅ <b>M5 Timeframe</b> - Strictly 5-minute trades\n`;
+    message += `✅ <b>Kenya Time</b> - All times in EAT (UTC+3)\n`;
+    message += `✅ <b>HTF Alignment</b> - M15 & H1 must match M5\n`;
+    message += `✅ <b>Candle Confirmation</b> - 2-3 strong consecutive candles\n`;
+    message += `✅ <b>Extreme Zone Filter</b> - RSI/Stoch >97 or <3 blocked\n`;
+    message += `✅ <b>Volatility Filter</b> - Spike detection active\n`;
+    message += `✅ <b>Session Priority</b> - Pair accuracy matching\n`;
+    message += `✅ <b>Risk Management</b> - Dynamic SL/TP based on ATR\n\n`;
+    
+    // Key recommendations
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `💡 <b>RECOMMENDATIONS</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `• Risk 1-2% of capital per trade maximum\n`;
+    message += `• Monitor price action at entry time\n`;
+    message += `• Avoid trading during major news events\n`;
+    message += `• Best results during ${session === "MORNING" ? "current MORNING session" : "MORNING session (7-12 EAT)"}\n`;
+    
+    if (signal.confidence >= 85) {
+      message += `• <b>HIGH CONFIDENCE</b> - Strong setup ✅\n`;
+    } else if (signal.confidence >= 70) {
+      message += `• <b>GOOD CONFIDENCE</b> - Solid setup 👍\n`;
+    } else {
+      message += `• <b>MODERATE CONFIDENCE</b> - Proceed with caution ⚠️\n`;
+    }
+    
+    message += `\n<i>⚠️ Trading involves risk. This is not financial advice. Always use proper risk management.</i>`;
 
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,

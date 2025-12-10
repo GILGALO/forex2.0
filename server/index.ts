@@ -23,7 +23,7 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-export function log(message: string, source = "express") {
+export function log(message: string, source = "app") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -31,7 +31,13 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  const logMessage = `${formattedTime} [${source}] ${message}`;
+  console.log(logMessage);
+
+  // Highlight important filter and verification messages
+  if (source === "signal-filter" || source === "signal-verified" || source === "signal-partial") {
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  }
 }
 
 app.use((req, res, next) => {

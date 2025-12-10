@@ -768,11 +768,14 @@ export async function generateSignalAnalysis(
   let skipTrade = false;
   let skipReason = "";
   
-  // 0. MULTI-TIMEFRAME ALIGNMENT CHECK (CRITICAL)
+  // 0. MULTI-TIMEFRAME ALIGNMENT CHECK (CRITICAL) - Must have perfect alignment
   if (!isHTFAligned) {
     skipTrade = true;
-    skipReason = `SKIP: Higher timeframe conflict - M5:${m5Trend}, M15:${m15Trend}, H1:${h1Trend}`;
-    reasoning.push(skipReason);
+    skipReason = `CRITICAL: Multi-timeframe misalignment - M5:${m5Trend}, M15:${m15Trend}, H1:${h1Trend} - ALL must match`;
+    reasoning.push(`🚫 ${skipReason}`);
+    reasoning.push("TRADE BLOCKED: Higher timeframe conflict detected");
+  } else {
+    reasoning.push(`✅ PERFECT HTF ALIGNMENT: M5=${m5Trend}, M15=${m15Trend}, H1=${h1Trend}`);
   }
   
   // 1. EXTREME RSI/STOCHASTIC SKIP (>97 or <3) - DYNAMIC THRESHOLDS
@@ -891,8 +894,11 @@ export async function generateSignalAnalysis(
   // If any hard filter triggered, return immediately with confidence 0
   if (skipTrade) {
     const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
-    reasoning.push(`TRADE BLOCKED: ${skipReason}`);
+    reasoning.push(`🚫 TRADE BLOCKED: ${skipReason}`);
     reasoning.push(`Final Confluence: 0% | Confidence: 0% (SKIPPED)`);
+    
+    // Log blocked trade for verification
+    log(`[FILTER BLOCKED] ${pair} - ${skipReason}`, "signal-filter");
     
     return {
       pair,
@@ -906,6 +912,9 @@ export async function generateSignalAnalysis(
       reasoning,
     };
   }
+  
+  // Log that trade passed all filters
+  log(`[FILTER PASSED] ${pair} - HTF:${isHTFAligned}, Candles:${candleConfirmationStrength}, Session:${sessionTime}`, "signal-filter");
   
   // ===== PROCEED WITH NORMAL ANALYSIS =====
   let bullishScore = 0;
@@ -1219,6 +1228,26 @@ export async function generateSignalAnalysis(
   
   reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence}%`);
   reasoning.push(`HTF Alignment: M5=${m5Trend}, M15=${m15Trend}, H1=${h1Trend} | Candle Strength: ${candleConfirmationStrength} | Session: ${sessionTime}`);
+  
+  // Verification Summary
+  const verificationPassed = {
+    htfAlignment: isHTFAligned,
+    candleConfirmation: candleConfirmationStrength >= 2,
+    extremeZones: !(technicals.rsi > 97 || technicals.rsi < 3 || technicals.stochastic.k > 97 || technicals.stochastic.k < 3),
+    volatilityCheck: !isExtremeVolatility(candles),
+    sessionFilter: confidence > 0,
+    confidenceThreshold: confidence >= (sessionTime === "AFTERNOON" || sessionTime === "EVENING" ? 85 : 70)
+  };
+  
+  const allChecksPassed = Object.values(verificationPassed).every(v => v);
+  
+  if (allChecksPassed && confidence > 0) {
+    reasoning.push(`✅ ALL SAFETY CHECKS PASSED - Signal approved for trading`);
+    log(`[VERIFIED SIGNAL] ${pair} ${signalType} - Confidence: ${confidence}% | HTF:✅ Candles:${candleConfirmationStrength} Session:${sessionTime}`, "signal-verified");
+  } else if (confidence > 0) {
+    reasoning.push(`⚠️ PARTIAL VERIFICATION - Some checks failed: ${JSON.stringify(verificationPassed)}`);
+    log(`[PARTIAL SIGNAL] ${pair} - Verification: ${JSON.stringify(verificationPassed)}`, "signal-partial");
+  }
   
   // Log trade for adaptive learning (only if not skipped)
   if (confidence > 0) {
