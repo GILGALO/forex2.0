@@ -58,11 +58,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 relative overflow-hidden">
       {/* Cyberpunk Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none cyber-grid opacity-30">
-        <div className="absolute top-10 left-10 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] animate-pulse-glow" />
-        <div className="absolute top-1/3 right-10 w-[400px] h-[400px] bg-accent/20 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute bottom-20 left-1/3 w-[600px] h-[600px] bg-primary/15 rounded-full blur-[140px] animate-float" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-full blur-[160px] animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-40">
+        <div className="absolute top-20 left-20 w-[400px] h-[400px] bg-emerald-500/15 rounded-full blur-[100px] animate-pulse" />
+        <div className="absolute top-1/3 right-20 w-[350px] h-[350px] bg-cyan-500/15 rounded-full blur-[90px] animate-pulse" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute bottom-20 left-1/3 w-[450px] h-[450px] bg-blue-500/10 rounded-full blur-[110px] animate-float" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-emerald-500/8 via-cyan-500/8 to-blue-500/8 rounded-full blur-[130px] animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
       <MarketTicker />
@@ -79,22 +79,22 @@ export default function Home() {
             
             <div className="flex items-center gap-4">
               <motion.div 
-                whileHover={{ scale: 1.15, rotate: 360 }}
-                transition={{ duration: 0.8, type: "spring" }}
-                className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center bg-gradient-to-br from-primary/30 via-accent/20 to-primary/30 border-2 border-primary/60 rounded-3xl shadow-2xl relative overflow-hidden group neon-glow"
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ duration: 0.5, type: "spring" }}
+                className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center bg-gradient-to-br from-emerald-500/20 via-cyan-500/20 to-blue-500/20 border-2 border-emerald-400/60 rounded-2xl shadow-xl relative overflow-hidden group"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/60 via-accent/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-gradient-shift" />
-                <Activity className="w-9 h-9 md:w-11 md:h-11 text-primary relative z-10 drop-shadow-[0_0_10px_rgba(190,24,255,0.8)]" />
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/40 via-cyan-500/30 to-blue-500/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <TrendingUp className="w-9 h-9 md:w-11 md:h-11 text-emerald-400 relative z-10" />
               </motion.div>
               
               <div>
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight mb-1">
-                  <span className="gradient-text neon-text">POCKET</span>
-                  <span className="text-white ml-2 drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]">TRADE</span>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-1">
+                  <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">GILGALO</span>
+                  <span className="text-white ml-2">TRADING</span>
                 </h1>
-                <p className="text-xs md:text-sm text-primary/80 font-mono tracking-[0.3em] uppercase flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-primary animate-pulse" />
-                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-bold">AI-POWERED SIGNAL INTELLIGENCE</span>
+                <p className="text-xs md:text-sm text-emerald-400/80 font-semibold tracking-wider uppercase flex items-center gap-2">
+                  <Activity className="w-3 h-3 text-emerald-400" />
+                  <span>Professional Signal Intelligence</span>
                 </p>
               </div>
             </div>
@@ -104,13 +104,13 @@ export default function Home() {
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.3, type: "spring", bounce: 0.6 }}
-                className="glass-panel px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 group hover:neon-glow transition-all duration-500 border-2 border-emerald-500/40"
+                className="glass-panel px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-3 border border-emerald-400/30 hover:border-emerald-400/50 transition-all duration-300"
               >
-                <Wifi className="w-5 h-5 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
-                <span className="text-sm font-mono text-emerald-400 font-black tracking-wider neon-text">LIVE</span>
+                <Wifi className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-semibold text-emerald-400 tracking-wide">LIVE</span>
                 <div className="relative">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
-                  <div className="absolute inset-0 w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                 </div>
               </motion.div>
 
@@ -118,12 +118,12 @@ export default function Home() {
                 initial={{ scale: 0, rotate: 180 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.4, type: "spring", bounce: 0.6 }}
-                className="glass-panel px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-primary/40 cyan-glow"
+                className="glass-panel px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-3 border border-primary/30"
               >
-                <BarChart3 className="w-5 h-5 text-primary drop-shadow-[0_0_10px_rgba(190,24,255,0.8)]" />
+                <BarChart3 className="w-4 h-4 text-primary" />
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Signals</span>
-                  <span className="text-lg font-black text-primary neon-text">{signals.length}</span>
+                  <span className="text-xs text-muted-foreground font-medium uppercase">Signals</span>
+                  <span className="text-base font-bold text-primary">{signals.length}</span>
                 </div>
               </motion.div>
             </div>
