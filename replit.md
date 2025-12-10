@@ -81,6 +81,13 @@ The application runs on port 5000.
 - EUR/JPY, GBP/JPY, AUD/JPY, EUR/AUD
 
 ## Recent Changes
+- December 2024: Signal accuracy improvements - confluence-based confidence capping
+  - Score difference tiers: <20 caps at 56%, 20-40 at 70%, 40-60 at 85%, >60 at 98%
+  - Positive modifiers only apply when scoreDiff >= 40
+  - Strict mode for afternoon sessions on MEDIUM/LOW accuracy pairs
+  - Strict mode reduces confidence by 20 points and caps at 55%
+- December 2024: Added Supertrend indicator and candlestick pattern detection
+- December 2024: Implemented pair accuracy categorization (HIGH/MEDIUM/LOW)
 - December 2024: Complete UI/UX redesign - cleaner, more organized dashboard
 - December 2024: Added mobile responsiveness with breakpoint-specific layouts
 - December 2024: Simplified futuristic styling with muted backgrounds
