@@ -1,0 +1,130 @@
+# ==============================
+# Gilgalo FX Upgraded Signal Logic
+# ==============================
+
+def generate_signal(pair, timeframe, indicators, candle, session_time, news=False, correlated=False, past_losses=0):
+    """
+    Generates a high-accuracy trade signal.
+    
+    Parameters:
+    - pair (str): Forex pair
+    - timeframe (str): M5, M15, H1, etc.
+    - indicators (dict): { 'RSI': value, 'MACD': value, 'Supertrend': direction, 'Bollinger': breakout, 'SMA': direction }
+    - candle (str): candle pattern confirmation ('bullish_engulfing', 'pin_bar', etc.)
+    - session_time (str): 'morning', 'afternoon', 'evening'
+    - news (bool): True if major news upcoming
+    - correlated (bool): True if highly correlated pair is open
+    - past_losses (int): number of consecutive losses for this pair
+    """
+    
+    # ----------------------
+    # 1. Session Filter
+    # ----------------------
+    high_accuracy_pairs = ['GBP/USD','EUR/JPY','USD/JPY','USD/CAD','GBP/JPY']
+    medium_accuracy_pairs = ['EUR/USD','AUD/USD','EUR/AUD','EUR/GBP']
+    low_accuracy_pairs = ['USD/CHF','AUD/JPY']
+    
+    if session_time == 'afternoon' and pair in medium_accuracy_pairs + low_accuracy_pairs:
+        strict_mode = True
+    else:
+        strict_mode = False
+
+    # ----------------------
+    # 2. Skip conditions
+    # ----------------------
+    if news or correlated or past_losses >= 2:
+        return None  # Skip trade
+
+    # ----------------------
+    # 3. Weighted Signal Scoring
+    # ----------------------
+    score = 0
+    # Assign weights
+    if indicators['MACD'] == 'SELL' or indicators['MACD'] == 'BUY':
+        score += 40
+    if indicators['Supertrend'] == 'SELL' or indicators['Supertrend'] == 'BUY':
+        score += 40
+    if indicators['Bollinger'] == 'breakout':
+        score += 30
+    if indicators['RSI'] >= 70 or indicators['RSI'] <= 30:
+        score += 20
+    if indicators['SMA'] == 'SELL' or indicators['SMA'] == 'BUY':
+        score += 10
+    
+    # Normalize score (optional)
+    weighted_score = min(score, 100)
+    
+    # ----------------------
+    # 4. Indicator Confluence / Candle Check
+    # ----------------------
+    if strict_mode and (weighted_score < 90 or candle not in ['bullish_engulfing','bearish_engulfing','pin_bar','hammer','doji']):
+        return None  # Skip weak setup
+    elif not strict_mode and weighted_score < 85:
+        return None  # Skip low-score trade
+    
+    # ----------------------
+    # 5. Determine Trade Type
+    # ----------------------
+    # Example: based on RSI + MACD + Supertrend alignment
+    trade_type = None
+    if indicators['RSI'] > 70 and indicators['MACD'] == 'SELL' and indicators['Supertrend'] == 'SELL':
+        trade_type = 'SELL/PUT'
+    elif indicators['RSI'] < 30 and indicators['MACD'] == 'BUY' and indicators['Supertrend'] == 'BUY':
+        trade_type = 'BUY/CALL'
+    else:
+        trade_type = 'SELL/PUT' if indicators['RSI'] > 70 else 'BUY/CALL'
+    
+    # ----------------------
+    # 6. Adaptive TP/SL
+    # ----------------------
+    volatility = indicators.get('Volatility', 1)  # e.g., ATR or candle size
+    entry = indicators['Price']
+    stop_loss = entry + (0.0015 * volatility if trade_type=='SELL/PUT' else -0.0015 * volatility)
+    take_profit = entry - (0.0025 * volatility if trade_type=='SELL/PUT' else 0.0025 * volatility)
+    
+    # ----------------------
+    # 7. Format Signal
+    # ----------------------
+    signal_message = f"""
+🚀 NEW HIGH-CONFIDENCE SIGNAL (AUTO)
+
+📊 Pair: {pair}
+⚡ Type: {trade_type}
+⏱ Timeframe: {timeframe}
+
+🎯 Entry: {entry:.5f}
+🛑 Stop Loss: {stop_loss:.5f}
+💰 Take Profit: {take_profit:.5f}
+
+💪 Confidence: {weighted_score}%
+
+📊 Indicators Confirmation:
+• RSI: {indicators['RSI']} {'Overbought' if indicators['RSI']>70 else 'Oversold' if indicators['RSI']<30 else 'Neutral'}
+• MACD: {indicators['MACD']}
+• Supertrend: {indicators['Supertrend']}
+• Bollinger: {indicators['Bollinger']}
+• SMA Trend: {indicators['SMA']}
+• Candle Pattern: {candle}
+
+📈 Trade Rationale:
+• Weighted indicator score {weighted_score}% → strong confluence
+• High-probability setup confirmed by candle pattern and trend alignment
+• Adaptive SL/TP based on recent volatility
+"""
+    
+    return signal_message
+
+# Example Usage
+indicators_example = {
+    'RSI': 92.2,
+    'MACD': 'SELL',
+    'Supertrend': 'SELL',
+    'Bollinger': 'breakout',
+    'SMA': 'BUY',
+    'Price': 1.65873,
+    'Volatility': 1.0
+}
+candle_example = 'bearish_engulfing'
+signal = generate_signal('EUR/AUD','M5',indicators_example,candle_example,'morning')
+if signal:
+    print(signal)
