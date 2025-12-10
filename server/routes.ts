@@ -168,6 +168,68 @@ export async function registerRoutes(
     res.json({ configured });
   });
 
+  app.get("/api/telegram/verify", async (req, res) => {
+    try {
+      const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+      const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+      if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+        return res.json({
+          success: false,
+          error: "Missing credentials",
+          botToken: !!TELEGRAM_BOT_TOKEN,
+          chatId: !!TELEGRAM_CHAT_ID
+        });
+      }
+
+      // Test bot token validity
+      const botInfoResponse = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe`
+      );
+      const botInfo = await botInfoResponse.json();
+
+      if (!botInfo.ok) {
+        return res.json({
+          success: false,
+          error: "Invalid bot token",
+          details: botInfo
+        });
+      }
+
+      // Try to get chat info
+      const chatInfoResponse = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat?chat_id=${TELEGRAM_CHAT_ID}`
+      );
+      const chatInfo = await chatInfoResponse.json();
+
+      res.json({
+        success: true,
+        bot: {
+          id: botInfo.result.id,
+          username: botInfo.result.username,
+          name: botInfo.result.first_name
+        },
+        chat: chatInfo.ok ? {
+          id: chatInfo.result.id,
+          title: chatInfo.result.title || chatInfo.result.username,
+          type: chatInfo.result.type
+        } : {
+          error: chatInfo.description,
+          chatId: TELEGRAM_CHAT_ID
+        },
+        credentials: {
+          botToken: `${TELEGRAM_BOT_TOKEN.substring(0, 10)}...`,
+          chatId: TELEGRAM_CHAT_ID
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   app.post("/api/telegram/test", async (req, res) => {
     try {
       // Create a test signal with realistic data

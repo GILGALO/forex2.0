@@ -316,6 +316,9 @@ export async function sendToTelegram(
     
     message += `\n<i>⚠️ Trading involves risk. This is not financial advice. Always use proper risk management.</i>`;
 
+    console.log(`[TELEGRAM] Sending to chat_id: ${TELEGRAM_CHAT_ID}`);
+    console.log(`[TELEGRAM] Bot token (first 10 chars): ${TELEGRAM_BOT_TOKEN.substring(0, 10)}...`);
+    
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
       {
@@ -330,12 +333,26 @@ export async function sendToTelegram(
     );
 
     const result = await response.json();
+    console.log(`[TELEGRAM] Response status: ${response.status}`);
+    console.log(`[TELEGRAM] Response body:`, JSON.stringify(result, null, 2));
+    
     if (!result.ok) {
-      console.error("[TELEGRAM ERROR]", JSON.stringify(result));
+      console.error("[TELEGRAM ERROR] Failed to send message");
+      console.error("[TELEGRAM ERROR] Error code:", result.error_code);
+      console.error("[TELEGRAM ERROR] Description:", result.description);
+      
+      if (result.error_code === 400) {
+        console.error("[TELEGRAM ERROR] This is likely a chat_id or permissions issue");
+        console.error("[TELEGRAM ERROR] Make sure:");
+        console.error("[TELEGRAM ERROR] 1. The bot is added to the channel");
+        console.error("[TELEGRAM ERROR] 2. The bot is an admin with 'Post Messages' permission");
+        console.error("[TELEGRAM ERROR] 3. The chat_id is correct (should start with -100 for channels)");
+      }
     }
     return result.ok;
-  } catch (error) {
-    console.error("[TELEGRAM EXCEPTION]", error);
+  } catch (error: any) {
+    console.error("[TELEGRAM EXCEPTION]", error.message);
+    console.error("[TELEGRAM EXCEPTION STACK]", error.stack);
     return false;
   }
 }
