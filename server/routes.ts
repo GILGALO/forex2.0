@@ -9,6 +9,7 @@ import {
   analyzeTechnicals,
   type SignalAnalysis,
 } from "./forexService";
+import { sendToTelegram } from "./telegram";
 import { log } from "./index";
 
 const FOREX_PAIRS = [
