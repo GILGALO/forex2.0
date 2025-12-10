@@ -81,6 +81,13 @@ The application runs on port 5000.
 - EUR/JPY, GBP/JPY, AUD/JPY, EUR/AUD
 
 ## Recent Changes
+- December 2024: Stability improvements for mobile and Replit app
+  - Replaced heavy TradingView react component with direct widget embedding
+  - Fixed memory leaks with proper DOM cleanup (innerHTML = '')
+  - Removed uniqueId from useEffect dependencies to prevent unnecessary re-renders
+  - Increased auto-mode polling interval from 1s to 5s
+  - Reduced animations and background effects for better performance
+  - Added Error Boundary component for graceful crash recovery
 - December 2024: Signal accuracy improvements - confluence-based confidence capping
   - Score difference tiers: <20 caps at 56%, 20-40 at 70%, 40-60 at 85%, >60 at 98%
   - Positive modifiers only apply when scoreDiff >= 40
