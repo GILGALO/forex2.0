@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { MarketTicker } from "@/components/market-ticker";
 import { SignalGenerator } from "@/components/signal-generator";
@@ -6,7 +7,8 @@ import { RecentSignals } from "@/components/recent-signals";
 import { type Signal } from "@/lib/constants";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Wifi } from "lucide-react";
+import { Activity, Wifi, TrendingUp, Zap, BarChart3 } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -54,60 +56,121 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
       <MarketTicker />
       
-      <main className="container mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8">
-        <header className="mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-primary/20 relative">
-            <div className="absolute -bottom-[1px] left-0 w-1/3 h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent rounded-full" />
+      <main className="container mx-auto px-4 py-6 md:px-6 md:py-8 lg:px-8 relative z-10">
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-8 md:mb-10"
+        >
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-6 border-b border-primary/20 relative">
+            <div className="absolute -bottom-[1px] left-0 w-full h-[2px] bg-gradient-to-r from-primary via-primary/50 to-transparent" />
             
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex w-10 h-10 md:w-12 md:h-12 items-center justify-center bg-primary/15 border border-primary/30 rounded-xl shadow-lg">
-                <Activity className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-              </div>
+            <div className="flex items-center gap-4">
+              <motion.div 
+                whileHover={{ scale: 1.1, rotate: 360 }}
+                transition={{ duration: 0.6 }}
+                className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/40 rounded-2xl shadow-2xl relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <Activity className="w-7 h-7 md:w-8 md:h-8 text-primary relative z-10" />
+              </motion.div>
+              
               <div>
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">
-                  <span className="text-primary">POCKET</span>
-                  <span className="text-white">TRADE</span>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight">
+                  <span className="gradient-text">POCKET</span>
+                  <span className="text-white ml-1">TRADE</span>
                 </h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground font-mono tracking-widest uppercase">
-                  Real-Time Signal Analysis
+                <p className="text-xs text-muted-foreground font-mono tracking-widest uppercase mt-1 flex items-center gap-2">
+                  <Zap className="w-3 h-3 text-primary" />
+                  Advanced Signal Intelligence
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2 bg-card/80 backdrop-blur border border-primary/30 px-4 py-2.5 rounded-xl shadow-lg">
-              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs sm:text-sm font-mono text-emerald-400 font-semibold">LIVE</span>
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
+            <div className="flex items-center gap-4">
+              <motion.div 
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.3, type: "spring" }}
+                className="glass-panel px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 group hover:bg-primary/10 transition-all duration-300"
+              >
+                <Wifi className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-mono text-emerald-400 font-bold tracking-wide">LIVE</span>
+                <div className="relative">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.4, type: "spring" }}
+                className="glass-panel px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3"
+              >
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Signals</span>
+                  <span className="text-sm font-bold text-primary">{signals.length}</span>
+                </div>
+              </motion.div>
             </div>
           </div>
-        </header>
+        </motion.header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-7">
-          <div className="xl:col-span-4 space-y-4 md:space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="xl:col-span-4 space-y-6"
+          >
             <SignalGenerator 
               onSignalGenerated={handleSignalGenerated} 
               onPairChange={setActivePair}
             />
             
             <div className="block xl:hidden">
-              <div className="h-[350px] sm:h-[400px] md:h-[450px]">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="h-[400px] sm:h-[450px] md:h-[500px]"
+              >
                 <TradingChart pair={activePair} />
-              </div>
+              </motion.div>
             </div>
             
-            <div className="max-h-[300px] sm:max-h-[350px] xl:max-h-[400px]">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="max-h-[350px] sm:max-h-[400px] xl:max-h-[450px]"
+            >
               <RecentSignals signals={signals} />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <div className="hidden xl:block xl:col-span-8">
-            <div className="h-[700px] sticky top-4">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="hidden xl:block xl:col-span-8"
+          >
+            <div className="h-[750px] sticky top-4">
               <TradingChart pair={activePair} />
             </div>
-          </div>
+          </motion.div>
         </div>
       </main>
       <Toaster />

@@ -1,30 +1,41 @@
+
 import { AdvancedRealTimeChart } from "react-ts-tradingview-widgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, Activity } from "lucide-react";
 
 interface TradingChartProps {
   pair: string;
 }
 
 export function TradingChart({ pair }: TradingChartProps) {
-  // Convert pair format "EUR/USD" -> "EURUSD" for TradingView
   const symbol = pair.replace("/", "");
 
   return (
-    <Card className="border-primary/30 bg-card/80 glass-panel h-full rounded-none shadow-[0_0_30px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
-      <CardHeader className="border-b border-white/5 py-3 bg-black/40 backdrop-blur-md z-10">
+    <Card className="glass-panel border-primary/40 h-full rounded-2xl shadow-2xl overflow-hidden flex flex-col relative group">
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <CardHeader className="border-b border-primary/30 py-4 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 backdrop-blur-xl z-10 relative">
         <div className="flex justify-between items-center">
-          <CardTitle className="font-mono text-sm text-primary flex items-center gap-2 uppercase tracking-widest">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
-            LIVE MARKET FEED: {pair}
+          <CardTitle className="font-mono text-sm font-bold flex items-center gap-3 uppercase tracking-widest">
+            <div className="flex items-center gap-2 glass-panel px-3 py-2 rounded-xl border border-primary/30">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <span className="gradient-text">LIVE MARKET</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              </div>
+              <span className="text-primary font-black">{pair}</span>
+            </div>
           </CardTitle>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {[1,2,3].map(i => (
-              <div key={i} className="w-1 h-1 bg-primary/30" />
+              <div key={i} className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
             ))}
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 p-0 relative bg-black">
+      <CardContent className="flex-1 p-0 relative bg-gradient-to-br from-black via-background to-black">
         <div className="absolute inset-0">
           <AdvancedRealTimeChart 
             theme="dark" 
@@ -34,7 +45,7 @@ export function TradingChart({ pair }: TradingChartProps) {
             timezone="Etc/UTC" 
             style="1" 
             locale="en" 
-            toolbar_bg="#f1f3f6" 
+            toolbar_bg="#0a0e1a" 
             hide_side_toolbar={false} 
             allow_symbol_change={true} 
             save_image={false} 
