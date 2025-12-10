@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { FOREX_PAIRS, TIMEFRAMES, type Signal, getCurrentSession } from "@/lib/constants";
-import { Loader2, Zap, Clock, Send, Activity, TrendingUp, TrendingDown, Target, Globe, Sparkles, Shield } from "lucide-react";
+import { Loader2, Zap, Clock, Send, Activity, TrendingUp, TrendingDown, Target, Globe, Sparkles, Shield, RefreshCw, Settings, Download, Share2 } from "lucide-react";
 import { format, addMinutes } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -421,6 +421,34 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
               )}
             </Button>
           </motion.div>
+
+          {/* Quick Action Buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full glass-panel border-cyan-500/30 hover:border-cyan-500/60 text-cyan-400 hover:text-cyan-300 h-10"
+                disabled={isAnalyzing || autoMode}
+                onClick={() => generateSignal(false)}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Quick Rescan
+              </Button>
+            </motion.div>
+            
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full glass-panel border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 hover:text-emerald-300 h-10"
+                disabled={!lastSignal}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Signal
+              </Button>
+            </motion.div>
+          </div>
 
           <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
             <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />

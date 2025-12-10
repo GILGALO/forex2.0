@@ -7,13 +7,33 @@ import { RecentSignals } from "@/components/recent-signals";
 import { type Signal } from "@/lib/constants";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Wifi, TrendingUp, Zap, BarChart3 } from "lucide-react";
+import { Activity, Wifi, TrendingUp, Zap, BarChart3, Target, TrendingDown, Award, Clock, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [activePair, setActivePair] = useState("EUR/USD");
   const { toast } = useToast();
+
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Calculate stats
+  const totalSignals = signals.length;
+  const wonSignals = signals.filter(s => s.status === 'won').length;
+  const lostSignals = signals.filter(s => s.status === 'lost').length;
+  const activeSignals = signals.filter(s => s.status === 'active').length;
+  const winRate = totalSignals > 0 ? ((wonSignals / (wonSignals + lostSignals)) * 100).toFixed(1) : '0.0';
+  const avgConfidence = totalSignals > 0 ? (signals.reduce((acc, s) => acc + s.confidence, 0) / totalSignals).toFixed(1) : '0.0';
+
+  useEffect(() => {
+    const dateInterval = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 1000);
+
+    return () => clearInterval(dateInterval);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -99,7 +119,7 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <motion.div 
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
@@ -117,17 +137,142 @@ export default function Home() {
               <motion.div
                 initial={{ scale: 0, rotate: 180 }}
                 animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.35, type: "spring", bounce: 0.6 }}
+                className="glass-panel px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 border border-primary/30"
+              >
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </span>
+                  <span className="text-xs font-bold text-cyan-400">
+                    {currentDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ scale: 0, rotate: 180 }}
+                animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.4, type: "spring", bounce: 0.6 }}
                 className="glass-panel px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-3 border border-primary/30"
               >
                 <BarChart3 className="w-4 h-4 text-primary" />
                 <div className="flex flex-col">
                   <span className="text-xs text-muted-foreground font-medium uppercase">Signals</span>
-                  <span className="text-base font-bold text-primary">{signals.length}</span>
+                  <span className="text-base font-bold text-primary">{totalSignals}</span>
                 </div>
               </motion.div>
             </div>
           </div>
+
+          {/* Stats Dashboard */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-6"
+          >
+            <Card className="glass-panel border-emerald-500/30 overflow-hidden group hover:border-emerald-500/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Target className="w-5 h-5 text-emerald-400" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Active</span>
+                </div>
+                <div className="text-2xl font-black text-emerald-400">{activeSignals}</div>
+                <div className="text-xs text-muted-foreground mt-1">Running now</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-emerald-500/30 overflow-hidden group hover:border-emerald-500/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Won</span>
+                </div>
+                <div className="text-2xl font-black text-emerald-400">{wonSignals}</div>
+                <div className="text-xs text-muted-foreground mt-1">Successful</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-rose-500/30 overflow-hidden group hover:border-rose-500/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingDown className="w-5 h-5 text-rose-400" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Lost</span>
+                </div>
+                <div className="text-2xl font-black text-rose-400">{lostSignals}</div>
+                <div className="text-xs text-muted-foreground mt-1">Unsuccessful</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-cyan-500/30 overflow-hidden group hover:border-cyan-500/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Award className="w-5 h-5 text-cyan-400" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Win Rate</span>
+                </div>
+                <div className="text-2xl font-black text-cyan-400">{winRate}%</div>
+                <div className="text-xs text-muted-foreground mt-1">Success ratio</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-blue-500/30 overflow-hidden group hover:border-blue-500/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Zap className="w-5 h-5 text-blue-400" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Avg. Conf.</span>
+                </div>
+                <div className="text-2xl font-black text-blue-400">{avgConfidence}%</div>
+                <div className="text-xs text-muted-foreground mt-1">Average</div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-primary/30 overflow-hidden group hover:border-primary/60 transition-all duration-300">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  <span className="text-xs text-muted-foreground font-semibold uppercase">Total</span>
+                </div>
+                <div className="text-2xl font-black text-primary">{totalSignals}</div>
+                <div className="text-xs text-muted-foreground mt-1">All signals</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-wrap gap-3 mt-6"
+          >
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSignals([])}
+              className="glass-panel border-rose-500/30 hover:border-rose-500/60 text-rose-400 hover:text-rose-300"
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              Clear History
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="glass-panel border-cyan-500/30 hover:border-cyan-500/60 text-cyan-400 hover:text-cyan-300"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              View Analytics
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="glass-panel border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 hover:text-emerald-300"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Export Data
+            </Button>
+          </motion.div>
         </motion.header>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">

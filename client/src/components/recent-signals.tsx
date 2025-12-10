@@ -2,14 +2,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type Signal } from "@/lib/constants";
 import { format } from "date-fns";
-import { TrendingUp, TrendingDown, Clock, CheckCircle2, XCircle, Timer, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Clock, CheckCircle2, XCircle, Timer, Activity, Filter } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface RecentSignalsProps {
   signals: Signal[];
 }
 
 export function RecentSignals({ signals }: RecentSignalsProps) {
+  const [filter, setFilter] = useState<'all' | 'active' | 'won' | 'lost'>('all');
+
+  const filteredSignals = signals.filter(signal => {
+    if (filter === 'all') return true;
+    return signal.status === filter;
+  });
+
   const getStatusIcon = (status: Signal["status"]) => {
     switch (status) {
       case "won":
@@ -24,28 +33,71 @@ export function RecentSignals({ signals }: RecentSignalsProps) {
   return (
     <Card className="h-full glass-panel border-primary/30 overflow-hidden flex flex-col shadow-2xl">
       <CardHeader className="py-4 px-5 border-b border-primary/30 shrink-0 bg-gradient-to-r from-primary/10 to-transparent">
-        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
           <Activity className="w-4 h-4 text-primary" />
           Recent Signals
           {signals.length > 0 && (
             <span className="ml-auto text-primary font-mono font-black text-sm bg-primary/20 px-2 py-1 rounded-full">
-              {signals.length}
+              {filteredSignals.length}/{signals.length}
             </span>
           )}
         </CardTitle>
+        
+        {/* Filter Buttons */}
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter('all')}
+            className={`text-xs h-7 ${filter === 'all' ? 'border-primary bg-primary/20 text-primary' : 'glass-panel border-border/30'}`}
+          >
+            All
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter('active')}
+            className={`text-xs h-7 ${filter === 'active' ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400' : 'glass-panel border-border/30'}`}
+          >
+            <Timer className="w-3 h-3 mr-1" />
+            Active
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter('won')}
+            className={`text-xs h-7 ${filter === 'won' ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400' : 'glass-panel border-border/30'}`}
+          >
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Won
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter('lost')}
+            className={`text-xs h-7 ${filter === 'lost' ? 'border-rose-500 bg-rose-500/20 text-rose-400' : 'glass-panel border-border/30'}`}
+          >
+            <XCircle className="w-3 h-3 mr-1" />
+            Lost
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-0 flex-1 overflow-y-auto">
-        {signals.length === 0 ? (
+        {filteredSignals.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <div className="w-14 h-14 mx-auto mb-4 rounded-2xl glass-panel flex items-center justify-center border border-primary/20">
               <Clock className="w-7 h-7 text-primary/50" />
             </div>
-            <p className="text-sm font-semibold">No signals generated yet</p>
-            <p className="text-xs mt-1">Your signals will appear here</p>
+            <p className="text-sm font-semibold">
+              {signals.length === 0 ? 'No signals generated yet' : `No ${filter} signals`}
+            </p>
+            <p className="text-xs mt-1">
+              {signals.length === 0 ? 'Your signals will appear here' : 'Try a different filter'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border/20 p-2">
-            {signals.map((signal, index) => (
+            {filteredSignals.map((signal, index) => (
               <motion.div
                 key={signal.id}
                 initial={{ opacity: 0, y: 10 }}
