@@ -1,0 +1,30 @@
+FINAL SIGNAL ACCURACY & RISK MANAGEMENT INSTRUCTIONS:
+
+1. **Timeframe:** All trades must be M5 (5-minute trades).  
+2. **Fixed Stakes Only:** Do NOT use martingale or progressive stakes.  
+3. **Kenya Time:** Start Time and End Time for all signals must be in Kenya Time (EAT, UTC+3).  
+4. **Indicator Confluence:** Use RSI, Stochastic, MACD, Supertrend, SMA/EMA, ADX, and candle patterns.  
+   - Strong confluence → higher confidence  
+   - Conflicting indicators → reduce confidence  
+5. **Extreme Overbought/Oversold Handling:**  
+   - Skip trades if RSI > 97 or Stochastic K/D > 97  
+   - Skip trades if RSI < 3 or Stochastic K/D < 3  
+   - Reduce confidence by 5–10% for RSI 90–97 or Stochastic 90–97  
+6. **Candlestick Confirmation:**  
+   - Require 2 consecutive trend-confirming candles for entry  
+   - Avoid entries on indecision candles (Doji, Spinning Top) in extreme zones  
+7. **Session-Based Risk Filters:**  
+   - Afternoon or low-accuracy sessions → only take trades with confidence ≥ 85%  
+   - Optional: slightly reduce stake in weaker sessions  
+8. **Short-Term Volatility Filter:**  
+   - Skip trades if last candle range ≥1.5x average M5 range  
+9. **TP/SL Management:**  
+   - Keep TP/SL fixed for normal conditions  
+   - For extreme overbought/oversold, allow slight adjustment of SL or partial TP to reduce risk of immediate pullback  
+10. **Confidence & Output:**  
+    - Confidence scoring must consider all indicators, candle patterns, and session context  
+    - Telegram-ready format including: Pair, Buy/Sell, Entry, SL, TP, Confidence %, RSI/Stochastic, Candle Pattern, Confluence Score, Kenya Time Start/End  
+11. **Logging:** Record every trade with Confidence, indicators, candle pattern, win/loss result, and session  
+12. **Do Not Alter Winning Trades:** Any logic added must **only prevent high-risk losses** and must not interfere with trades already identified as high-probability wins  
+
+💡 **Goal:** Maximize probability of winning trades, reduce losses in risky conditions, maintain correct Kenya Time, use fixed stakes, and preserve all winning signals.
