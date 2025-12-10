@@ -1,9 +1,6 @@
 import type { Signal } from "../client/src/lib/constants";
 import type { SignalAnalysis } from "./forexService";
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-
 // Helper function to get current time in Kenya (UTC+3)
 function getKenyaTime(): Date {
   const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
@@ -74,6 +71,9 @@ export async function sendToTelegram(
   analysis?: SignalAnalysis,
   isAuto: boolean = false
 ): Promise<boolean> {
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+  
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.log("[telegram] Telegram credentials not configured");
     return false;
@@ -292,7 +292,7 @@ export async function sendToTelegram(
     message += `✅ <b>Kenya Time</b> - All times in EAT (UTC+3)\n`;
     message += `✅ <b>HTF Alignment</b> - M15 & H1 must match M5\n`;
     message += `✅ <b>Candle Confirmation</b> - 2-3 strong consecutive candles\n`;
-    message += `✅ <b>Extreme Zone Filter</b> - RSI/Stoch >97 or <3 blocked\n`;
+    message += `✅ <b>Extreme Zone Filter</b> - RSI/Stoch above 97 or below 3 blocked\n`;
     message += `✅ <b>Volatility Filter</b> - Spike detection active\n`;
     message += `✅ <b>Session Priority</b> - Pair accuracy matching\n`;
     message += `✅ <b>Risk Management</b> - Dynamic SL/TP based on ATR\n\n`;
@@ -330,9 +330,12 @@ export async function sendToTelegram(
     );
 
     const result = await response.json();
+    if (!result.ok) {
+      console.error("[TELEGRAM ERROR]", JSON.stringify(result));
+    }
     return result.ok;
   } catch (error) {
-    console.error("Telegram send error:", error);
+    console.error("[TELEGRAM EXCEPTION]", error);
     return false;
   }
 }

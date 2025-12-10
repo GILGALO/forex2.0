@@ -18,62 +18,6 @@ const FOREX_PAIRS = [
   "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/AUD"
 ];
 
-async function sendToTelegram(signal: any, analysis?: SignalAnalysis, isAuto = false): Promise<boolean> {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  
-  if (!botToken || !chatId) {
-    log("Telegram credentials not configured", "telegram");
-    return false;
-  }
-
-  const reasoningText = analysis?.reasoning?.length 
-    ? `\n📈 *Analysis:*\n${analysis.reasoning.map((r: string) => `• ${r}`).join('\n')}`
-    : '';
-
-  const technicalsText = analysis?.technicals
-    ? `\n📊 *Technicals:*\n• RSI: ${analysis.technicals.rsi.toFixed(1)}\n• Trend: ${analysis.technicals.trend}\n• Momentum: ${analysis.technicals.momentum}`
-    : '';
-
-  const message = `
-🚀 *NEW SIGNAL ALERT ${isAuto ? '(AUTO)' : '(MANUAL)'}* 🚀
-
-📊 *Pair:* ${signal.pair}
-⚡ *Type:* ${signal.type === 'CALL' ? '🟢 BUY/CALL' : '🔴 SELL/PUT'}
-⏱ *Timeframe:* ${signal.timeframe}
-⏰ *Start Time:* ${signal.startTime}
-🏁 *End Time:* ${signal.endTime}
-
-🎯 *Entry:* ${signal.entry.toFixed(5)}
-🛑 *Stop Loss:* ${signal.stopLoss.toFixed(5)}
-💰 *Take Profit:* ${signal.takeProfit.toFixed(5)}
-
-💪 *Confidence:* ${signal.confidence}%
-${technicalsText}
-${reasoningText}
-  `.trim();
-
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'Markdown',
-      }),
-    });
-    
-    if (!response.ok) {
-      log(`Telegram API error: ${await response.text()}`, "telegram");
-      return false;
-    }
-    return true;
-  } catch (error) {
-    log(`Telegram network error: ${error}`, "telegram");
-    return false;
-  }
-}
 
 export async function registerRoutes(
   httpServer: Server,
