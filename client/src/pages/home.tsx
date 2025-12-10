@@ -275,24 +275,24 @@ export default function Home() {
           </motion.div>
         </motion.header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 md:gap-8">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="xl:col-span-4 space-y-6"
+            className="lg:col-span-5 xl:col-span-4 space-y-4 sm:space-y-6"
           >
             <SignalGenerator 
               onSignalGenerated={handleSignalGenerated} 
               onPairChange={setActivePair}
             />
             
-            <div className="block xl:hidden">
+            <div className="block lg:hidden">
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="h-[400px] sm:h-[450px] md:h-[500px]"
+                className="h-[350px] sm:h-[400px] md:h-[450px]"
               >
                 <TradingChart pair={activePair} />
               </motion.div>
@@ -302,7 +302,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="max-h-[350px] sm:max-h-[400px] xl:max-h-[450px]"
+              className="max-h-[300px] sm:max-h-[350px] lg:max-h-[400px]"
             >
               <RecentSignals signals={signals} />
             </motion.div>
@@ -312,9 +312,9 @@ export default function Home() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="hidden xl:block xl:col-span-8"
+            className="hidden lg:block lg:col-span-7 xl:col-span-8"
           >
-            <div className="h-[750px] sticky top-4">
+            <div className="h-[650px] lg:h-[700px] xl:h-[750px] sticky top-4">
               <TradingChart pair={activePair} />
             </div>
           </motion.div>

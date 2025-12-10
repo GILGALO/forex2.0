@@ -103,6 +103,13 @@
       linear-gradient(135deg, hsl(220 27% 8%), hsl(220 27% 6%));
     background-attachment: fixed;
     background-size: 100% 100%, 100% 100%, 120% 120%, 100% 100%;
+    -webkit-overflow-scrolling: touch;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  html {
+    height: -webkit-fill-available;
   }
   
   ::-webkit-scrollbar {

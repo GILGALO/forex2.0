@@ -128,18 +128,13 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             console.log(`All signals blocked by filters. Valid: ${scanData.stats.valid}/${scanData.stats.total}`);
             
             if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
-              toast({ 
-                title: "No Valid Signals", 
-                description: `All ${scanData.stats.total} pairs blocked by safety filters. Will retry in 7 minutes.`,
-                variant: "destructive" 
-              });
-              
-              // If in auto mode, set next scan time instead of exiting
+              // Show notification but don't exit - keep timer running
               if (isAuto) {
-                const nextScan = Date.now() + (7 * 60 * 1000); // 7 minutes from now
+                const nextScan = Date.now() + (7 * 60 * 1000);
                 setNextSignalTime(nextScan);
+                setIsAnalyzing(false);
               }
-              return; // Exit early - no valid signals found
+              return; // Exit signal generation but keep app running
             }
             
             // Wait before next rescan
@@ -168,14 +163,13 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
         } else {
           console.log(`Low confidence (${analysisResult?.confidence || 0}%), rescanning...`);
           if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
-            toast({ 
-              title: "Low Confidence", 
-              description: `Could not find a signal with sufficient confidence after ${MAX_RESCAN_ATTEMPTS} attempts.`,
-              variant: "destructive" 
-            });
-            return; // Exit early instead of throwing error
+            // Keep timer running instead of exiting
+            if (isAuto) {
+              const nextScan = Date.now() + (7 * 60 * 1000);
+              setNextSignalTime(nextScan);
+            }
+            break; // Exit rescan loop but continue execution
           }
-          // Optional: Add a delay before rescanning
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
@@ -183,12 +177,12 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       if (!foundGoodSignal || !analysisResult) {
         console.log("No valid signal found after all rescan attempts");
         
-        // If in auto mode, set next scan time instead of exiting
+        // Keep timer running in auto mode
         if (isAuto) {
-          const nextScan = Date.now() + (7 * 60 * 1000); // 7 minutes from now
+          const nextScan = Date.now() + (7 * 60 * 1000);
           setNextSignalTime(nextScan);
         }
-        return; // Exit if no good signal was found after attempts
+        return; // Exit signal generation loop only
       }
 
       const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -237,15 +231,17 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       }
     } catch (error) {
       console.error('Signal generation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // Don't show error toast for expected conditions
-      if (!errorMessage.includes('Max rescan attempts') && !errorMessage.includes('No valid signals')) {
-        toast({ 
-          title: "Analysis Error", 
-          description: "Market analysis failed. Please try again.",
-          variant: "destructive" 
-        });
+      // Keep timer running even on error
+      if (isAuto) {
+        const nextScan = Date.now() + (7 * 60 * 1000);
+        setNextSignalTime(nextScan);
+      }
+      
+      // Only show toast for unexpected errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (!errorMessage.includes('Max rescan') && !errorMessage.includes('No valid')) {
+        console.log('Non-critical error, continuing...');
       }
     } finally {
       setIsAnalyzing(false);
@@ -276,16 +272,21 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const Countdown = () => {
     const [timeLeft, setTimeLeft] = useState("");
     useEffect(() => {
-      if (!nextSignalTime) return;
-      const interval = setInterval(() => {
+      if (!nextSignalTime) {
+        setTimeLeft("");
+        return;
+      }
+      const updateTime = () => {
         const diff = Math.max(0, nextSignalTime - Date.now());
         const mins = Math.floor(diff / 60000);
         const secs = Math.floor((diff % 60000) / 1000);
         setTimeLeft(`${mins}:${secs.toString().padStart(2, '0')}`);
-      }, 1000);
+      };
+      updateTime(); // Initial update
+      const interval = setInterval(updateTime, 1000);
       return () => clearInterval(interval);
-    }, [nextSignalTime]); // Dependency array includes nextSignalTime
-    if (!nextSignalTime) return null;
+    }, [nextSignalTime]);
+    if (!nextSignalTime || !timeLeft) return null;
     return <span className="font-mono text-sm text-primary font-bold">{timeLeft}</span>;
   };
 
