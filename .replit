@@ -43,4 +43,4 @@ build = ["npm", "run", "build"]
 
 [userenv.shared]
 TELEGRAM_BOT_TOKEN = "7859254974:AAHgMcRDV0ODgQh_YyA7aymzOK5lkzb--6s"
-TELEGRAM_CHAT_ID = "790898350"
+TELEGRAM_CHAT_ID = "-1003204026619"
