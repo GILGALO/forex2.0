@@ -168,5 +168,89 @@ export async function registerRoutes(
     res.json({ configured });
   });
 
+  app.post("/api/telegram/test", async (req, res) => {
+    try {
+      // Create a test signal with realistic data
+      const testSignal = {
+        id: "test-" + Date.now(),
+        pair: "EUR/USD",
+        timeframe: "M5",
+        type: "CALL" as const,
+        entry: 1.09500,
+        stopLoss: 1.09300,
+        takeProfit: 1.09900,
+        confidence: 85,
+        timestamp: Date.now(),
+        startTime: new Date(Date.now() + 7 * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }),
+        endTime: new Date(Date.now() + 12 * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' }),
+        status: "active" as const
+      };
+
+      const testAnalysis = {
+        pair: "EUR/USD",
+        currentPrice: 1.09500,
+        signalType: "CALL" as const,
+        confidence: 85,
+        entry: 1.09500,
+        stopLoss: 1.09300,
+        takeProfit: 1.09900,
+        technicals: {
+          rsi: 45.5,
+          macd: { value: 0.0001, signal: 0.00008, histogram: 0.00002 },
+          stochastic: { k: 42.3, d: 38.7 },
+          bollingerBands: { upper: 1.09800, middle: 1.09500, lower: 1.09200, percentB: 0.5, breakout: false },
+          sma20: 1.09400,
+          sma50: 1.09350,
+          sma200: 1.09100,
+          ema12: 1.09480,
+          ema26: 1.09420,
+          adx: 28.5,
+          atr: 0.00025,
+          supertrend: { value: 1.09300, direction: "BULLISH" as const },
+          ichimoku: { tenkan: 1.09500, kijun: 1.09450, senkouA: 1.09400, senkouB: 1.09350 },
+          pivotPoints: { pivot: 1.09500, r1: 1.09650, r2: 1.09800, s1: 1.09350, s2: 1.09200 },
+          fibonacciLevels: { level236: 1.09350, level382: 1.09400, level500: 1.09500, level618: 1.09600, level786: 1.09700 },
+          candlePattern: "bullish_engulfing" as const,
+          momentum: "BULLISH" as const,
+          volatility: "MODERATE" as const,
+          volumeProfile: "HIGH" as const
+        },
+        reasoning: [
+          "HTF Alignment: ✅ M15 BULLISH | ✅ H1 BULLISH | Candle Strength: 3",
+          "RSI: 45.5 (Neutral - healthy level)",
+          "MACD: Bullish histogram positive",
+          "Supertrend: BULLISH direction confirmed",
+          "Final Confluence: 85% | Score diff: 15 | R/R: 1:2",
+          "🧪 TEST SIGNAL - Verifying Telegram channel integration"
+        ]
+      };
+
+      const sent = await sendToTelegram(testSignal, testAnalysis, false);
+      
+      if (sent) {
+        log("[TELEGRAM TEST] Test signal sent successfully to channel -1003204026619", "telegram-test");
+        res.json({ 
+          success: true, 
+          message: "Test signal sent to Telegram channel successfully! ✅",
+          channelId: process.env.TELEGRAM_CHAT_ID
+        });
+      } else {
+        log("[TELEGRAM TEST] Failed to send test signal", "telegram-test");
+        res.json({ 
+          success: false, 
+          message: "Failed to send test signal. Check bot token and channel permissions.",
+          channelId: process.env.TELEGRAM_CHAT_ID
+        });
+      }
+    } catch (error: any) {
+      log(`[TELEGRAM TEST ERROR] ${error.message}`, "telegram-test");
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        hint: "Make sure the bot is added as admin to the channel with post message permissions"
+      });
+    }
+  });
+
   return httpServer;
 }
