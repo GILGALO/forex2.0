@@ -130,9 +130,15 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
             if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
               toast({ 
                 title: "No Valid Signals", 
-                description: `All ${scanData.stats.total} pairs blocked by safety filters. Market conditions not favorable.`,
+                description: `All ${scanData.stats.total} pairs blocked by safety filters. Will retry in 7 minutes.`,
                 variant: "destructive" 
               });
+              
+              // If in auto mode, set next scan time instead of exiting
+              if (isAuto) {
+                const nextScan = Date.now() + (7 * 60 * 1000); // 7 minutes from now
+                setNextSignalTime(nextScan);
+              }
               return; // Exit early - no valid signals found
             }
             
@@ -176,6 +182,12 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
       if (!foundGoodSignal || !analysisResult) {
         console.log("No valid signal found after all rescan attempts");
+        
+        // If in auto mode, set next scan time instead of exiting
+        if (isAuto) {
+          const nextScan = Date.now() + (7 * 60 * 1000); // 7 minutes from now
+          setNextSignalTime(nextScan);
+        }
         return; // Exit if no good signal was found after attempts
       }
 
@@ -219,10 +231,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       }
 
       if (isAuto) {
-        // Calculate next signal time based on timeframe and session
-        const session = getCurrentSession();
-        const nextSignalTimestamp = session.nextSignalTimestamp || Date.now(); // Use session data if available
-        setNextSignalTime(nextSignalTimestamp);
+        // Set next scan to 7 minutes from now
+        const nextScan = Date.now() + (7 * 60 * 1000);
+        setNextSignalTime(nextScan);
       }
     } catch (error) {
       console.error('Signal generation error:', error);
