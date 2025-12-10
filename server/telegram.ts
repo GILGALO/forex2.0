@@ -79,11 +79,20 @@ export async function sendToTelegram(
     return false;
   }
 
-  // Skip sending if confidence is 0 (trade was skipped by risk filters)
-  if (signal.confidence === 0) {
-    console.log("[telegram] Signal skipped - confidence is 0 (risk filter triggered)");
+  // CRITICAL FILTER: Skip sending if confidence is 0 (trade was skipped by risk filters)
+  if (signal.confidence === 0 || signal.confidence <= 0) {
+    console.log(`[TELEGRAM BLOCKED] ${signal.pair} - Confidence is ${signal.confidence}% (risk filter triggered)`);
+    console.log(`[TELEGRAM BLOCKED] Reason: Signal failed strict safety filters and should not be traded`);
     return false;
   }
+
+  // Additional safety check: verify signal has valid reasoning
+  if (analysis?.reasoning && analysis.reasoning.some(r => r.includes("BLOCKED") || r.includes("SKIP"))) {
+    console.log(`[TELEGRAM BLOCKED] ${signal.pair} - Analysis contains blocking reason`);
+    return false;
+  }
+
+  console.log(`[TELEGRAM SENDING] ${signal.pair} ${signal.type} - Confidence: ${signal.confidence}% ✅`);
 
   try {
     const confidenceEmoji = getConfidenceEmoji(signal.confidence);

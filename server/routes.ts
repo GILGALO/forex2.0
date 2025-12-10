@@ -168,8 +168,40 @@ export async function registerRoutes(
       if (!signal) {
         return res.status(400).json({ error: "Missing signal data" });
       }
+
+      // CRITICAL: Verify signal passed all safety filters before sending
+      if (signal.confidence <= 0) {
+        log(`[TELEGRAM BLOCKED] ${signal.pair} - Confidence ${signal.confidence}% (filtered out)`, "telegram");
+        return res.json({ 
+          success: false, 
+          message: "Signal blocked by safety filters (confidence 0%)",
+          blocked: true,
+          reason: "Risk filters prevented this signal from being sent"
+        });
+      }
+
+      // Check for blocking indicators in analysis reasoning
+      if (analysis?.reasoning) {
+        const hasBlockingReason = analysis.reasoning.some(r => 
+          r.includes("BLOCKED") || r.includes("SKIP:") || r.includes("🚫") || r.includes("TRADE BLOCKED")
+        );
+        if (hasBlockingReason) {
+          log(`[TELEGRAM BLOCKED] ${signal.pair} - Contains blocking reason in analysis`, "telegram");
+          return res.json({ 
+            success: false, 
+            message: "Signal blocked by analysis filters",
+            blocked: true,
+            reason: analysis.reasoning.find(r => r.includes("BLOCKED") || r.includes("SKIP"))
+          });
+        }
+      }
+
       const sent = await sendToTelegram(signal, analysis, isAuto);
-      res.json({ success: sent, message: sent ? "Signal sent to Telegram" : "Telegram not configured or failed" });
+      res.json({ 
+        success: sent, 
+        blocked: false,
+        message: sent ? "Signal sent to Telegram ✅" : "Telegram not configured or failed" 
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message, success: false });
     }
