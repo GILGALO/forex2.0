@@ -1,4 +1,3 @@
-
 import type { Signal } from "../client/src/lib/constants";
 import type { SignalAnalysis } from "./forexService";
 
@@ -10,6 +9,14 @@ function getKenyaTime(): Date {
   const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
   const nowUTC = new Date();
   return new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
+}
+
+// Helper function to format time in Kenya (EAT)
+function formatKenyaTime(date: Date): string {
+  const kenyaTime = getKenyaTime();
+  const hours = kenyaTime.getHours().toString().padStart(2, '0');
+  const minutes = kenyaTime.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 function getConfidenceEmoji(confidence: number): string {
@@ -47,7 +54,7 @@ function isSessionHotZone(): { isHotZone: boolean; session: string } {
   const hour = kenyaTime.getHours();
   let session = "EVENING";
   let isHotZone = false;
-  
+
   if (hour >= 7 && hour < 12) {
     session = "MORNING";
     isHotZone = true; // London session
@@ -58,7 +65,7 @@ function isSessionHotZone(): { isHotZone: boolean; session: string } {
     session = "EVENING";
     isHotZone = false; // Asian session - lower volume
   }
-  
+
   return { isHotZone, session };
 }
 
@@ -82,7 +89,7 @@ export async function sendToTelegram(
     const confidenceEmoji = getConfidenceEmoji(signal.confidence);
     const modeLabel = isAuto ? "AUTO" : "MANUAL";
     const { isHotZone, session } = isSessionHotZone();
-    
+
     // Extract confluence score from reasoning
     let confluenceScore = 70;
     if (analysis?.reasoning) {
@@ -92,73 +99,73 @@ export async function sendToTelegram(
         if (match) confluenceScore = parseInt(match[1]);
       }
     }
-    
+
     let message = `🚀 NEW SIGNAL (${modeLabel})\n`;
     message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    
+
     // Core Signal Info
     message += `📊 <b>Pair:</b> ${signal.pair}\n`;
     message += `⚡ <b>Signal:</b> ${signal.type === "CALL" ? "BUY 📈" : "SELL 📉"}\n`;
     message += `📉 <b>Timeframe:</b> ${signal.timeframe} (M5)\n\n`;
-    
+
     // Kenya Time Start/End
-    message += `⏰ <b>Kenya Time Start:</b> ${signal.startTime} EAT\n`;
-    message += `⏰ <b>Kenya Time End:</b> ${signal.endTime} EAT\n\n`;
-    
+    message += `⏰ <b>Kenya Time Start:</b> ${formatKenyaTime(new Date(signal.startTime))} EAT\n`;
+    message += `⏰ <b>Kenya Time End:</b> ${formatKenyaTime(new Date(signal.endTime))} EAT\n\n`;
+
     // Trade Levels
     message += `🎯 <b>Entry:</b> ${signal.entry.toFixed(5)}\n`;
     message += `🛑 <b>Stop Loss:</b> ${signal.stopLoss.toFixed(5)}\n`;
     message += `💰 <b>Take Profit:</b> ${signal.takeProfit.toFixed(5)}\n\n`;
-    
+
     // Confidence
     message += `💪 <b>Confidence:</b> ${signal.confidence}% ${confidenceEmoji}\n`;
     message += `📊 <b>Confluence Score:</b> ${confluenceScore}%\n\n`;
 
     if (analysis?.technicals) {
       const tech = analysis.technicals;
-      
+
       message += `━━━━━━━━━━━━━━━━━━━━━\n`;
       message += `📈 <b>TECHNICAL INDICATORS</b>\n`;
       message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-      
+
       // RSI & Stochastic
       message += `• <b>RSI:</b> ${tech.rsi.toFixed(1)} (${getRSIStatus(tech.rsi)})\n`;
       message += `• <b>Stochastic K/D:</b> ${tech.stochastic.k.toFixed(1)} / ${tech.stochastic.d.toFixed(1)}\n`;
-      
+
       // MACD
       const macdDirection = tech.macd.histogram > 0 ? "Bullish" : "Bearish";
       message += `• <b>MACD:</b> ${macdDirection} (Hist: ${tech.macd.histogram.toFixed(5)})\n`;
-      
+
       // Supertrend
       message += `• <b>Supertrend:</b> ${tech.supertrend.direction}\n`;
-      
+
       // ADX
       message += `• <b>ADX:</b> ${tech.adx.toFixed(1)} (${tech.adx > 40 ? "Very Strong" : tech.adx > 25 ? "Strong" : "Weak"} Trend)\n`;
-      
+
       // Bollinger
       const bollingerStatus = getBollingerStatus(tech.bollingerBands.breakout, tech.bollingerBands.percentB);
       message += `• <b>Bollinger:</b> ${bollingerStatus}\n`;
-      
+
       // SMA Status
       const smaStatus = getSMAStatus(analysis.currentPrice, tech.sma20, tech.sma50, tech.sma200);
       message += `• <b>SMA Trend:</b> ${smaStatus}\n`;
-      
+
       // Candle Pattern
       const candlePattern = tech.candlePattern ? tech.candlePattern.replace(/_/g, ' ').toUpperCase() : "None";
       message += `• <b>Candle Pattern:</b> ${candlePattern}\n\n`;
-      
+
       // Risk Warnings
       if (tech.rsi > 90 || tech.stochastic.k > 90 || tech.stochastic.d > 90) {
         message += `⚠️ <b>CAUTION:</b> Extreme overbought - watch for reversal\n`;
       } else if (tech.rsi < 10 || tech.stochastic.k < 10 || tech.stochastic.d < 10) {
         message += `⚠️ <b>CAUTION:</b> Extreme oversold - watch for reversal\n`;
       }
-      
+
       if (tech.candlePattern === "doji" || tech.candlePattern === "spinning_top") {
         message += `⚠️ <b>NOTE:</b> Indecision pattern - entry timing critical\n`;
       }
     }
-    
+
     // Session Info
     message += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
     message += `🌍 <b>SESSION INFO</b>\n`;

@@ -1,3 +1,62 @@
+
+// Signal validation function - called before generating any trade signal
+interface SignalValidation {
+  isValid: boolean;
+  blockReasons: string[];
+}
+
+function validateSignal(
+  candles: CandleData[],
+  technicals: TechnicalAnalysis,
+  direction: "BUY" | "SELL",
+  confidence: number,
+  pairAccuracy: PairAccuracy
+): SignalValidation {
+  const blockReasons: string[] = [];
+  
+  // 1. Check for 2 consecutive trend-confirming candles
+  const requiredDirection = direction === "BUY" ? "BULLISH" : "BEARISH";
+  if (!hasTwoConsecutiveTrendCandles(candles, requiredDirection)) {
+    blockReasons.push("Missing 2 consecutive trend-confirming candles");
+  }
+  
+  // 2. Block on indecision candles in extreme zones
+  const lastCandle = candles[candles.length - 1];
+  const isExtremeZone = technicals.rsi > 90 || technicals.rsi < 10 || 
+                        technicals.stochastic.k > 90 || technicals.stochastic.k < 10;
+  if (isIndecisionCandle(lastCandle) && isExtremeZone) {
+    blockReasons.push("Indecision candle detected in extreme overbought/oversold zone");
+  }
+  
+  // 3. Short-term volatility filter
+  if (isExtremeVolatility(candles)) {
+    blockReasons.push("Extreme short-term volatility detected (last candle ≥1.5x average range)");
+  }
+  
+  // 4. Extreme RSI/Stochastic absolute blocking
+  if (technicals.rsi > 97 || technicals.rsi < 3) {
+    blockReasons.push(`EXTREME RSI blocking trade: ${technicals.rsi.toFixed(1)}`);
+  }
+  if (technicals.stochastic.k > 97 || technicals.stochastic.k < 3 ||
+      technicals.stochastic.d > 97 || technicals.stochastic.d < 3) {
+    blockReasons.push(`EXTREME Stochastic blocking trade: K=${technicals.stochastic.k.toFixed(1)}, D=${technicals.stochastic.d.toFixed(1)}`);
+  }
+  
+  // 5. Session-based confidence threshold
+  const sessionHour = getKenyaHour();
+  const isAfternoonOrEvening = sessionHour >= 12;
+  const minConfidence = (isAfternoonOrEvening || pairAccuracy === "LOW") ? 85 : 75;
+  
+  if (confidence < minConfidence) {
+    blockReasons.push(`Confidence ${confidence}% below ${minConfidence}% threshold for this session/pair`);
+  }
+  
+  return {
+    isValid: blockReasons.length === 0,
+    blockReasons
+  };
+}
+
 import { log } from "./index";
 
 export interface ForexQuote {
@@ -61,10 +120,22 @@ const HIGH_ACCURACY_PAIRS = ["GBP/USD", "EUR/JPY", "USD/JPY", "USD/CAD", "GBP/JP
 const MEDIUM_ACCURACY_PAIRS = ["EUR/USD", "AUD/USD", "EUR/AUD", "EUR/GBP"];
 const LOW_ACCURACY_PAIRS = ["USD/CHF", "AUD/JPY", "NZD/USD"];
 
+const TIMEFRAME = "5min"; // Strictly M5 (5-minute) trades only
+const KENYA_UTC_OFFSET = 3; // Kenya is UTC+3 (EAT)
+
 function getPairAccuracy(pair: string): PairAccuracy {
   if (HIGH_ACCURACY_PAIRS.includes(pair)) return "HIGH";
   if (MEDIUM_ACCURACY_PAIRS.includes(pair)) return "MEDIUM";
   return "LOW";
+}
+
+function toKenyaTime(timestamp: number): string {
+  const date = new Date(timestamp + (KENYA_UTC_OFFSET * 60 * 60 * 1000));
+  return date.toISOString().replace('T', ' ').substring(0, 19) + ' EAT';
+}
+
+function getKenyaHour(timestamp: number = Date.now()): number {
+  return new Date(timestamp + (KENYA_UTC_OFFSET * 60 * 60 * 1000)).getUTCHours();
 }
 
 function getCurrentSessionTime(): SessionTime {
@@ -184,9 +255,13 @@ export async function getForexCandles(
     throw new Error(`Unknown pair: ${pair}`);
   }
 
+  // Enforce M5 timeframe only
+  const enforcedInterval = "5min";
+  const enforcedCacheKey = `${pair}_${enforcedInterval}`;
+  
   if (apiKey) {
     try {
-      const url = `https://www.alphavantage.co/query?function=FX_INTRADAY&from_symbol=${pairInfo.from}&to_symbol=${pairInfo.to}&interval=${interval}&apikey=${apiKey}`;
+      const url = `https://www.alphavantage.co/query?function=FX_INTRADAY&from_symbol=${pairInfo.from}&to_symbol=${pairInfo.to}&interval=${enforcedInterval}&apikey=${apiKey}`;
       const data = await fetchWithRetry(url);
       
       const timeSeriesKey = Object.keys(data).find(k => k.includes("Time Series"));
@@ -203,7 +278,7 @@ export async function getForexCandles(
           }))
           .reverse();
 
-        candleCache.set(cacheKey, { data: candles, timestamp: Date.now() });
+        candleCache.set(enforcedCacheKey, { data: candles, timestamp: Date.now() });
         return candles;
       }
     } catch (error) {
@@ -359,6 +434,46 @@ function calculateBollingerBands(prices: number[], period: number = 20, stdDev: 
   const percentB = (currentPrice - lower) / (upper - lower);
   
   return { upper, middle, lower, percentB };
+}
+
+function isBullishCandle(candle: CandleData): boolean {
+  return candle.close > candle.open;
+}
+
+function isBearishCandle(candle: CandleData): boolean {
+  return candle.close < candle.open;
+}
+
+function isIndecisionCandle(candle: CandleData): boolean {
+  const body = Math.abs(candle.close - candle.open);
+  const range = candle.high - candle.low;
+  return body < range * 0.3; // Doji/Spinning Top if body < 30% of range
+}
+
+function hasTwoConsecutiveTrendCandles(candles: CandleData[], direction: "BULLISH" | "BEARISH"): boolean {
+  if (candles.length < 2) return false;
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  
+  if (direction === "BULLISH") {
+    return isBullishCandle(last) && isBullishCandle(prev) && !isIndecisionCandle(last) && !isIndecisionCandle(prev);
+  } else {
+    return isBearishCandle(last) && isBearishCandle(prev) && !isIndecisionCandle(last) && !isIndecisionCandle(prev);
+  }
+}
+
+function calculateAverageCandleRange(candles: CandleData[], periods: number = 20): number {
+  const recentCandles = candles.slice(-periods);
+  const sum = recentCandles.reduce((acc, c) => acc + (c.high - c.low), 0);
+  return sum / recentCandles.length;
+}
+
+function isExtremeVolatility(candles: CandleData[]): boolean {
+  if (candles.length < 2) return false;
+  const lastCandle = candles[candles.length - 1];
+  const lastRange = lastCandle.high - lastCandle.low;
+  const avgRange = calculateAverageCandleRange(candles);
+  return lastRange >= avgRange * 1.5;
 }
 
 function calculateStochastic(candles: CandleData[], kPeriod: number = 14, dPeriod: number = 3): { k: number; d: number } {
@@ -870,12 +985,43 @@ export async function generateSignalAnalysis(
     if (hasPatternConfirmation && !patternAligned) confidence -= 5;
   }
   
+  // Extreme RSI/Stochastic blocking
+  const rsiExtreme = technicals.rsi > 97 || technicals.rsi < 3;
+  const stochExtreme = technicals.stochastic.k > 97 || technicals.stochastic.k < 3 || 
+                       technicals.stochastic.d > 97 || technicals.stochastic.d < 3;
+  
+  if (rsiExtreme || stochExtreme) {
+    signalBlocked = true;
+    reasoning.push(`BLOCKED: Extreme overbought/oversold (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)})`);
+  }
+  
+  // Reduce confidence for high RSI/Stochastic (90-97 range)
+  const rsiHigh = technicals.rsi >= 90 && technicals.rsi <= 97;
+  const rsiLow = technicals.rsi >= 3 && technicals.rsi <= 10;
+  const stochHigh = technicals.stochastic.k >= 90 || technicals.stochastic.d >= 90;
+  const stochLow = technicals.stochastic.k <= 10 || technicals.stochastic.d <= 10;
+  
+  if (rsiHigh || rsiLow || stochHigh || stochLow) {
+    confidence -= 7;
+    reasoning.push(`High RSI/Stochastic zone detected - confidence reduced by 7%`);
+  }
+  
   if (strictMode) {
     confidence = confidence - 20;
     maxConfidence = Math.min(maxConfidence, 55);
     if (!signalBlocked) {
       reasoning.push(`[Strict Mode] Afternoon session with ${pairAccuracy} accuracy pair - confidence reduced by 20`);
     }
+  }
+  
+  // Session-based minimum confidence filter
+  const sessionHour = getKenyaHour();
+  const isAfternoon = sessionHour >= 12 && sessionHour < 18;
+  const isLowAccuracyPair = pairAccuracy === "LOW";
+  
+  if ((isAfternoon || isLowAccuracyPair) && confidence < 85 && scoreDiff < 60) {
+    signalBlocked = true;
+    reasoning.push(`BLOCKED: ${isAfternoon ? 'Afternoon' : 'Low-accuracy'} session requires confidence ≥85% (current: ${confidence}%)`);
   }
   
   confidence = Math.min(maxConfidence, Math.max(45, Math.round(confidence)));
