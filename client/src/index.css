@@ -92,6 +92,7 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   
   body {
@@ -101,15 +102,18 @@
       radial-gradient(ellipse at 80% 80%, hsl(189 94% 43% / 0.08), transparent 40%),
       radial-gradient(circle at 50% 50%, hsl(200 80% 60% / 0.03), transparent 70%),
       linear-gradient(135deg, hsl(220 27% 8%), hsl(220 27% 6%));
-    background-attachment: fixed;
+    background-attachment: scroll;
     background-size: 100% 100%, 100% 100%, 120% 120%, 100% 100%;
     -webkit-overflow-scrolling: touch;
     min-height: 100vh;
     min-height: -webkit-fill-available;
+    overscroll-behavior: none;
+    touch-action: pan-y;
   }
   
   html {
     height: -webkit-fill-available;
+    overscroll-behavior: none;
   }
   
   ::-webkit-scrollbar {
@@ -132,6 +136,25 @@
   @media (max-width: 640px) {
     html {
       font-size: 14px;
+    }
+    
+    * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+    }
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
     }
   }
 }
@@ -158,31 +181,27 @@
   }
 
   @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    33% { transform: translateY(-15px) rotate(2deg); }
-    66% { transform: translateY(-8px) rotate(-2deg); }
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
   }
 
   .animate-float {
-    animation: float 6s ease-in-out infinite;
+    animation: float 4s ease-in-out infinite;
+    will-change: transform;
   }
 
   @keyframes pulse-glow {
     0%, 100% { 
-      box-shadow: 
-        0 0 20px rgba(190, 24, 255, 0.4),
-        0 0 40px rgba(190, 24, 255, 0.2); 
+      opacity: 0.8;
     }
     50% { 
-      box-shadow: 
-        0 0 30px rgba(190, 24, 255, 0.6),
-        0 0 60px rgba(190, 24, 255, 0.4),
-        0 0 90px rgba(190, 24, 255, 0.2); 
+      opacity: 1;
     }
   }
 
   .animate-pulse-glow {
-    animation: pulse-glow 3s ease-in-out infinite;
+    animation: pulse-glow 2s ease-in-out infinite;
+    will-change: opacity;
   }
 
   @keyframes gradient-shift {
