@@ -286,6 +286,7 @@ export async function sendToTelegram(
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
     message += `📋 <b>ACTIVE SAFETY RULES</b>\n`;
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `✅ <b>Smart Rescan</b> - Auto-rescan until high confidence\n`;
     message += `✅ <b>Fixed Stakes Only</b> - NO Martingale\n`;
     message += `✅ <b>M5 Timeframe</b> - Strictly 5-minute trades\n`;
     message += `✅ <b>Kenya Time</b> - All times in EAT (UTC+3)\n`;

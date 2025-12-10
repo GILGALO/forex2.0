@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,6 +51,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const { toast } = useToast();
 
+  const MIN_CONFIDENCE_THRESHOLD = 50; // Minimum required confidence percentage
+  const MAX_RESCAN_ATTEMPTS = 3; // Maximum number of rescans allowed
+
   useEffect(() => {
     fetch('/api/telegram/status')
       .then(res => res.json())
@@ -86,9 +88,12 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const result = await response.json();
       if (result.success) {
         toast({ title: "Telegram", description: "Signal sent successfully" });
+      } else {
+        toast({ title: "Telegram Error", description: result.message || "Failed to send signal", variant: "destructive" });
       }
     } catch (error) {
       console.error('Telegram send error', error);
+      toast({ title: "Telegram Error", description: "An unexpected error occurred.", variant: "destructive" });
     }
   };
 
@@ -100,37 +105,58 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
     try {
       let analysisResult: SignalAnalysisResponse;
       let currentPair = selectedPair;
+      let scanAttempts = 0;
+      let foundGoodSignal = false;
 
       const shouldScan = isAuto ? scanMode : !manualMode;
 
-      if (shouldScan) {
-        const scanResponse = await fetch('/api/forex/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ timeframe }),
-        });
-        if (!scanResponse.ok) throw new Error('Scan failed');
-        const scanData = await scanResponse.json();
-        analysisResult = scanData.bestSignal;
-        currentPair = analysisResult.pair;
-        setSelectedPair(currentPair);
-        onPairChange(currentPair);
-      } else {
-        const response = await fetch('/api/forex/signal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pair: currentPair, timeframe }),
-        });
-        if (!response.ok) throw new Error('Signal generation failed');
-        analysisResult = await response.json();
+      while (scanAttempts < MAX_RESCAN_ATTEMPTS && !foundGoodSignal) {
+        scanAttempts++;
+        console.log(`Scan attempt: ${scanAttempts}`);
+
+        if (shouldScan) {
+          const scanResponse = await fetch('/api/forex/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timeframe }),
+          });
+          if (!scanResponse.ok) throw new Error('Scan failed');
+          const scanData = await scanResponse.json();
+          analysisResult = scanData.bestSignal;
+          currentPair = analysisResult.pair;
+          setSelectedPair(currentPair);
+          onPairChange(currentPair);
+        } else {
+          const response = await fetch('/api/forex/signal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pair: currentPair, timeframe }),
+          });
+          if (!response.ok) throw new Error('Signal generation failed');
+          analysisResult = await response.json();
+        }
+
+        setLastAnalysis(analysisResult);
+
+        if (analysisResult.confidence >= MIN_CONFIDENCE_THRESHOLD) {
+          foundGoodSignal = true;
+        } else {
+          console.log(`Low confidence (${analysisResult.confidence}%), rescanning...`);
+          if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
+            toast({ title: "Low Confidence", description: `Could not find a signal with sufficient confidence after ${MAX_RESCAN_ATTEMPTS} attempts.`, variant: "warning" });
+            throw new Error('Max rescan attempts reached');
+          }
+          // Optional: Add a delay before rescanning
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
 
-      setLastAnalysis(analysisResult);
+      if (!foundGoodSignal) return; // Exit if no good signal was found after attempts
 
       const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000;
       const nowUTC = new Date();
       const nowKenya = new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
-      
+
       let intervalMinutes = 5;
       if (timeframe.startsWith('M')) intervalMinutes = parseInt(timeframe.substring(1));
       else if (timeframe.startsWith('H')) intervalMinutes = parseInt(timeframe.substring(1)) * 60;
@@ -159,12 +185,24 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
       setLastSignal(signal);
       onSignalGenerated(signal);
-      sendToTelegram(signal, analysisResult);
 
-      if (isAuto) setNextSignalTime(Date.now() + 7 * 60 * 1000);
+      if (signal.confidence >= MIN_CONFIDENCE_THRESHOLD) {
+        sendToTelegram(signal, analysisResult);
+      } else {
+        console.log("Skipping Telegram for low confidence signal.");
+      }
+
+      if (isAuto) {
+        // Calculate next signal time based on timeframe and session
+        const session = getCurrentSession();
+        const nextSignalTimestamp = session.nextSignalTimestamp || Date.now(); // Use session data if available
+        setNextSignalTime(nextSignalTimestamp);
+      }
     } catch (error) {
       console.error('Signal generation error:', error);
-      toast({ title: "Error", description: "Analysis failed. Please retry.", variant: "destructive" });
+      if (!error.message.includes('Max rescan attempts reached')) {
+        toast({ title: "Error", description: "Analysis failed. Please retry.", variant: "destructive" });
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -174,10 +212,11 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
     if (autoMode) {
       if (!nextSignalTime) {
         generateSignal(true);
-        setNextSignalTime(Date.now() + 7 * 60 * 1000);
       }
       const checkInterval = setInterval(() => {
-        if (nextSignalTime && Date.now() >= nextSignalTime && !isAnalyzing) generateSignal(true);
+        if (nextSignalTime && Date.now() >= nextSignalTime && !isAnalyzing) {
+          generateSignal(true);
+        }
       }, 1000);
       return () => clearInterval(checkInterval);
     } else {
@@ -201,7 +240,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
         setTimeLeft(`${mins}:${secs.toString().padStart(2, '0')}`);
       }, 1000);
       return () => clearInterval(interval);
-    }, []);
+    }, [nextSignalTime]); // Dependency array includes nextSignalTime
     if (!nextSignalTime) return null;
     return <span className="font-mono text-sm text-primary font-bold">{timeLeft}</span>;
   };
@@ -211,7 +250,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       <Card className="glass-panel border-primary/30 shadow-2xl overflow-hidden relative group">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <CardContent className="p-5 space-y-5 relative z-10">
-          <motion.div 
+          <motion.div
             whileHover={{ scale: 1.02 }}
             className="glass-panel p-4 rounded-2xl border border-primary/20 shadow-lg relative overflow-hidden"
           >
@@ -252,7 +291,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           )}
 
           {!autoMode && (
-            <motion.div 
+            <motion.div
               whileHover={{ scale: 1.02 }}
               className="glass-panel p-4 rounded-2xl border border-primary/20 shadow-lg"
             >
@@ -314,7 +353,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           </div>
 
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button 
+            <Button
               className="w-full h-14 font-bold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground shadow-2xl relative overflow-hidden group"
               onClick={() => generateSignal(false)}
               disabled={isAnalyzing || autoMode}
@@ -366,7 +405,7 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
               <CardContent className="p-5 relative">
                 <div className="flex items-start justify-between gap-4 mb-5">
                   <div className="flex items-center gap-4">
-                    <motion.div 
+                    <motion.div
                       animate={{ scale: [1, 1.1, 1] }}
                       transition={{ repeat: Infinity, duration: 2 }}
                       className={`p-3 rounded-2xl shadow-lg ${lastSignal.type === "CALL" ? "bg-emerald-500/20 border-2 border-emerald-500/40" : "bg-rose-500/20 border-2 border-rose-500/40"}`}
@@ -386,7 +425,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                   </div>
                   <div className="text-right glass-panel px-4 py-2 rounded-xl border border-primary/30">
                     <div className="text-3xl font-black text-primary neon-text">{lastSignal.confidence}%</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Confidence</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                      Confidence {lastSignal.confidence >= MIN_CONFIDENCE_THRESHOLD ? "✓" : ""}
+                    </div>
                   </div>
                 </div>
 
@@ -450,11 +491,11 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
                     </div>
                     <div className="space-y-2">
                       {lastAnalysis.reasoning.slice(0, 3).map((reason, i) => (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.1 }}
-                          key={i} 
+                          key={i}
                           className="text-xs text-muted-foreground flex items-start gap-2 glass-panel p-2 rounded-lg"
                         >
                           <span className="text-primary mt-0.5 font-bold">•</span>

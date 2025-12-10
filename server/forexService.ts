@@ -728,7 +728,9 @@ export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
 export async function generateSignalAnalysis(
   pair: string,
   timeframe: string,
-  apiKey?: string
+  apiKey?: string,
+  maxRescans: number = 5,
+  minConfidenceThreshold: number = 70
 ): Promise<SignalAnalysis> {
   const intervalMap: Record<string, string> = {
     "M1": "1min",
@@ -740,11 +742,21 @@ export async function generateSignalAnalysis(
   };
 
   const interval = intervalMap[timeframe] || "5min";
-  const candles = await getForexCandles(pair, interval, apiKey);
-  const technicals = analyzeTechnicals(candles);
-  const currentPrice = candles[candles.length - 1].close;
+  
+  // Smart RESCAN System - attempt multiple times if confidence is too low
+  let rescanAttempt = 0;
+  let bestSignal: SignalAnalysis | null = null;
+  let highestConfidence = 0;
 
-  // MULTI-TIMEFRAME ALIGNMENT: Check M15 and H1 trends
+  while (rescanAttempt < maxRescans) {
+    rescanAttempt++;
+    
+    // Fetch fresh data on each rescan
+    const candles = await getForexCandles(pair, interval, apiKey);
+    const technicals = analyzeTechnicals(candles);
+    const currentPrice = candles[candles.length - 1].close;
+
+    // MULTI-TIMEFRAME ALIGNMENT: Check M15 and H1 trends
   const candlesM15 = await getForexCandles(pair, "15min", apiKey);
   const candlesH1 = await getForexCandles(pair, "60min", apiKey);
   const technicalsM15 = analyzeTechnicals(candlesM15);
@@ -1259,7 +1271,7 @@ export async function generateSignalAnalysis(
     });
   }
 
-  return {
+  const currentSignal: SignalAnalysis = {
     pair,
     currentPrice,
     signalType,
@@ -1270,6 +1282,47 @@ export async function generateSignalAnalysis(
     technicals,
     reasoning,
   };
+
+  // SMART RESCAN LOGIC
+  // Track best signal across rescans
+  if (confidence > highestConfidence) {
+    highestConfidence = confidence;
+    bestSignal = currentSignal;
+  }
+
+  // Check if we found a good signal
+  if (confidence >= minConfidenceThreshold && confidence > 0) {
+    log(`[RESCAN SUCCESS] ${pair} - Found good signal on attempt ${rescanAttempt}/${maxRescans} with ${confidence}% confidence`, "rescan");
+    bestSignal!.reasoning.push(`🔄 RESCAN: Found quality signal on attempt ${rescanAttempt}/${maxRescans}`);
+    return bestSignal!;
+  }
+
+  // If confidence is 0 or below threshold, try again
+  if (rescanAttempt < maxRescans) {
+    log(`[RESCAN ${rescanAttempt}/${maxRescans}] ${pair} - Confidence ${confidence}% below threshold ${minConfidenceThreshold}% - Rescanning...`, "rescan");
+    // Small delay before next scan to allow market to move
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    continue;
+  }
+
+  // Max rescans reached
+  log(`[RESCAN FAILED] ${pair} - Max rescans (${maxRescans}) reached. Best confidence: ${highestConfidence}%`, "rescan");
+  break;
+  }
+
+  // Return best signal found (even if below threshold)
+  if (bestSignal) {
+    bestSignal.reasoning.push(`⚠️ RESCAN: Max attempts (${maxRescans}) reached. Best confidence: ${highestConfidence}%`);
+    if (highestConfidence < minConfidenceThreshold) {
+      bestSignal.reasoning.push(`🚫 BLOCKED: Best confidence ${highestConfidence}% still below threshold ${minConfidenceThreshold}%`);
+      // Force confidence to 0 if still below threshold after all rescans
+      bestSignal.confidence = 0;
+    }
+    return bestSignal;
+  }
+
+  // Fallback (should never reach here, but safety)
+  return currentSignal;
 }
 
 function calculateATR(candles: CandleData[], period: number = 14): number {

@@ -142,20 +142,32 @@ export async function registerRoutes(
 
   app.post("/api/forex/scan", async (req, res) => {
     try {
-      const { timeframe } = req.body;
+      const { timeframe, maxRescans = 5, minConfidenceThreshold = 70 } = req.body;
       const tf = timeframe || "M5";
       
+      log(`[SCAN] Starting smart rescan for ${FOREX_PAIRS.length} pairs (maxRescans: ${maxRescans}, minThreshold: ${minConfidenceThreshold}%)`, "scan");
+      
       const signals = await Promise.all(
-        FOREX_PAIRS.map(pair => generateSignalAnalysis(pair, tf, apiKey))
+        FOREX_PAIRS.map(pair => generateSignalAnalysis(pair, tf, apiKey, maxRescans, minConfidenceThreshold))
       );
       
       const sortedSignals = signals.sort((a, b) => b.confidence - a.confidence);
+      const validSignals = sortedSignals.filter(s => s.confidence > 0);
+      
+      log(`[SCAN] Complete - Found ${validSignals.length}/${signals.length} valid signals. Best: ${sortedSignals[0]?.confidence || 0}%`, "scan");
       
       res.json({
         timestamp: Date.now(),
         timeframe: tf,
         signals: sortedSignals,
         bestSignal: sortedSignals[0],
+        stats: {
+          total: signals.length,
+          valid: validSignals.length,
+          blocked: signals.length - validSignals.length,
+          maxRescans,
+          minConfidenceThreshold
+        }
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
