@@ -11,7 +11,7 @@ interface RecentSignalsProps {
   signals: Signal[];
 }
 
-export default function RecentSignals({ signals }: RecentSignalsProps) {
+function RecentSignals({ signals }: RecentSignalsProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'won' | 'lost'>('all');
 
   const filteredSignals = signals.filter(signal => {
@@ -152,3 +152,5 @@ export default function RecentSignals({ signals }: RecentSignalsProps) {
     </Card>
   );
 }
+
+export default RecentSignals;

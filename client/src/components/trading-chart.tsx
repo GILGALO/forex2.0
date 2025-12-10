@@ -7,7 +7,7 @@ interface TradingChartProps {
   pair: string;
 }
 
-export default function TradingChart({ pair }: TradingChartProps) {
+function TradingChart({ pair }: TradingChartProps) {
   const symbol = pair.replace("/", "");
 
   return (
@@ -58,3 +58,5 @@ export default function TradingChart({ pair }: TradingChartProps) {
     </Card>
   );
 }
+
+export default TradingChart;
