@@ -73,7 +73,7 @@ function getCurrentSessionTime(): SessionTime {
   const nowUTC = new Date();
   const nowKenya = new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
   const hour = nowKenya.getHours();
-
+  
   if (hour >= 7 && hour < 12) return "MORNING";
   if (hour >= 12 && hour < 17) return "AFTERNOON";
   return "EVENING";
@@ -140,13 +140,13 @@ export async function getForexQuote(pair: string, apiKey?: string): Promise<Fore
     try {
       const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${pairInfo.from}&to_currency=${pairInfo.to}&apikey=${apiKey}`;
       const data = await fetchWithRetry(url);
-
+      
       if (data["Realtime Currency Exchange Rate"]) {
         const rate = data["Realtime Currency Exchange Rate"];
         const price = parseFloat(rate["5. Exchange Rate"]);
         const bid = parseFloat(rate["8. Bid Price"]) || price * 0.99995;
         const ask = parseFloat(rate["9. Ask Price"]) || price * 1.00005;
-
+        
         const quote: ForexQuote = {
           pair,
           price,
@@ -188,7 +188,7 @@ export async function getForexCandles(
     try {
       const url = `https://www.alphavantage.co/query?function=FX_INTRADAY&from_symbol=${pairInfo.from}&to_symbol=${pairInfo.to}&interval=${interval}&apikey=${apiKey}`;
       const data = await fetchWithRetry(url);
-
+      
       const timeSeriesKey = Object.keys(data).find(k => k.includes("Time Series"));
       if (timeSeriesKey && data[timeSeriesKey]) {
         const timeSeries = data[timeSeriesKey];
@@ -238,7 +238,7 @@ function generateRealisticQuote(pair: string): ForexQuote {
   const randomWalk = (Math.random() - 0.5) * 2 * volatility * basePrice;
   const price = basePrice + randomWalk;
   const spread = pair.includes("JPY") ? 0.02 : 0.00002;
-
+  
   return {
     pair,
     price,
@@ -261,13 +261,13 @@ function generateRealisticCandles(pair: string, count: number): CandleData[] {
     const timestamp = now - i * interval;
     const trend = Math.sin(i * 0.1) * volatility * basePrice;
     const noise = (Math.random() - 0.5) * volatility * basePrice;
-
+    
     const open = basePrice;
     const change = trend + noise;
     const close = open + change;
     const high = Math.max(open, close) + Math.random() * volatility * basePrice * 0.5;
     const low = Math.min(open, close) - Math.random() * volatility * basePrice * 0.5;
-
+    
     candles.push({
       timestamp,
       open,
@@ -275,7 +275,7 @@ function generateRealisticCandles(pair: string, count: number): CandleData[] {
       low,
       close,
     });
-
+    
     basePrice = close;
   }
 
@@ -290,32 +290,32 @@ function calculateSMA(prices: number[], period: number): number {
 
 function calculateEMA(prices: number[], period: number): number {
   if (prices.length < period) return prices[prices.length - 1];
-
+  
   const k = 2 / (period + 1);
   let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
-
+  
   for (let i = period; i < prices.length; i++) {
     ema = prices[i] * k + ema * (1 - k);
   }
-
+  
   return ema;
 }
 
 function calculateRSI(prices: number[], period: number = 14): number {
   if (prices.length < period + 1) return 50;
-
+  
   let gains = 0;
   let losses = 0;
-
+  
   for (let i = prices.length - period; i < prices.length; i++) {
     const change = prices[i] - prices[i - 1];
     if (change > 0) gains += change;
     else losses -= change;
   }
-
+  
   const avgGain = gains / period;
   const avgLoss = losses / period;
-
+  
   if (avgLoss === 0) return 100;
   const rs = avgGain / avgLoss;
   return 100 - (100 / (1 + rs));
@@ -325,7 +325,7 @@ function calculateMACD(prices: number[]): { macdLine: number; signalLine: number
   const ema12 = calculateEMA(prices, 12);
   const ema26 = calculateEMA(prices, 26);
   const macdLine = ema12 - ema26;
-
+  
   const macdHistory: number[] = [];
   for (let i = 26; i <= prices.length; i++) {
     const slice = prices.slice(0, i);
@@ -333,11 +333,11 @@ function calculateMACD(prices: number[]): { macdLine: number; signalLine: number
     const e26 = calculateEMA(slice, 26);
     macdHistory.push(e12 - e26);
   }
-
+  
   const signalLine = macdHistory.length >= 9 
     ? calculateEMA(macdHistory, 9) 
     : macdLine;
-
+  
   return {
     macdLine,
     signalLine,
@@ -348,29 +348,29 @@ function calculateMACD(prices: number[]): { macdLine: number; signalLine: number
 function calculateBollingerBands(prices: number[], period: number = 20, stdDev: number = 2): { upper: number; middle: number; lower: number; percentB: number } {
   const middle = calculateSMA(prices, period);
   const slice = prices.slice(-period);
-
+  
   const variance = slice.reduce((sum, price) => sum + Math.pow(price - middle, 2), 0) / period;
   const standardDeviation = Math.sqrt(variance);
-
+  
   const upper = middle + (standardDeviation * stdDev);
   const lower = middle - (standardDeviation * stdDev);
-
+  
   const currentPrice = prices[prices.length - 1];
   const percentB = (currentPrice - lower) / (upper - lower);
-
+  
   return { upper, middle, lower, percentB };
 }
 
 function calculateStochastic(candles: CandleData[], kPeriod: number = 14, dPeriod: number = 3): { k: number; d: number } {
   if (candles.length < kPeriod) return { k: 50, d: 50 };
-
+  
   const slice = candles.slice(-kPeriod);
   const currentClose = candles[candles.length - 1].close;
   const lowestLow = Math.min(...slice.map(c => c.low));
   const highestHigh = Math.max(...slice.map(c => c.high));
-
+  
   const k = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100;
-
+  
   const kValues: number[] = [];
   for (let i = kPeriod - 1; i < candles.length; i++) {
     const periodSlice = candles.slice(i - kPeriod + 1, i + 1);
@@ -379,28 +379,28 @@ function calculateStochastic(candles: CandleData[], kPeriod: number = 14, dPerio
     const high = Math.max(...periodSlice.map(c => c.high));
     kValues.push(((close - low) / (high - low)) * 100);
   }
-
+  
   const d = kValues.length >= dPeriod 
     ? kValues.slice(-dPeriod).reduce((a, b) => a + b, 0) / dPeriod 
     : k;
-
+  
   return { k, d };
 }
 
 function calculateADX(candles: CandleData[], period: number = 14): number {
   if (candles.length < period + 1) return 25;
-
+  
   const dmPlus: number[] = [];
   const dmMinus: number[] = [];
   const tr: number[] = [];
-
+  
   for (let i = 1; i < candles.length; i++) {
     const highDiff = candles[i].high - candles[i - 1].high;
     const lowDiff = candles[i - 1].low - candles[i].low;
-
+    
     dmPlus.push(highDiff > lowDiff && highDiff > 0 ? highDiff : 0);
     dmMinus.push(lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0);
-
+    
     const trueRange = Math.max(
       candles[i].high - candles[i].low,
       Math.abs(candles[i].high - candles[i - 1].close),
@@ -408,14 +408,14 @@ function calculateADX(candles: CandleData[], period: number = 14): number {
     );
     tr.push(trueRange);
   }
-
+  
   const smoothDmPlus = dmPlus.slice(-period).reduce((a, b) => a + b, 0);
   const smoothDmMinus = dmMinus.slice(-period).reduce((a, b) => a + b, 0);
   const smoothTr = tr.slice(-period).reduce((a, b) => a + b, 0);
-
+  
   const diPlus = (smoothDmPlus / smoothTr) * 100;
   const diMinus = (smoothDmMinus / smoothTr) * 100;
-
+  
   const dx = Math.abs(diPlus - diMinus) / (diPlus + diMinus) * 100;
   return dx;
 }
@@ -424,20 +424,20 @@ function calculateSupertrend(candles: CandleData[], period: number = 10, multipl
   if (candles.length < period + 1) {
     return { direction: "NEUTRAL" as "BULLISH" | "BEARISH", value: candles[candles.length - 1].close };
   }
-
+  
   const atr = calculateATR(candles, period);
   const currentCandle = candles[candles.length - 1];
   const hl2 = (currentCandle.high + currentCandle.low) / 2;
-
+  
   const upperBand = hl2 + (multiplier * atr);
   const lowerBand = hl2 - (multiplier * atr);
-
+  
   const prevCandle = candles[candles.length - 2];
   const prevClose = prevCandle.close;
-
+  
   let direction: "BULLISH" | "BEARISH";
   let value: number;
-
+  
   if (currentCandle.close > upperBand) {
     direction = "BULLISH";
     value = lowerBand;
@@ -448,74 +448,74 @@ function calculateSupertrend(candles: CandleData[], period: number = 10, multipl
     direction = prevClose > hl2 ? "BULLISH" : "BEARISH";
     value = direction === "BULLISH" ? lowerBand : upperBand;
   }
-
+  
   return { direction, value };
 }
 
 function detectCandlePattern(candles: CandleData[]): string | null {
   if (candles.length < 3) return null;
-
+  
   const current = candles[candles.length - 1];
   const prev = candles[candles.length - 2];
   const prevPrev = candles[candles.length - 3];
-
+  
   const bodySize = Math.abs(current.close - current.open);
   const upperWick = current.high - Math.max(current.open, current.close);
   const lowerWick = Math.min(current.open, current.close) - current.low;
   const totalRange = current.high - current.low;
-
+  
   const prevBodySize = Math.abs(prev.close - prev.open);
-
+  
   if (totalRange > 0) {
     if (current.close > current.open && prev.close < prev.open) {
       if (current.close > prev.open && current.open < prev.close && bodySize > prevBodySize * 0.8) {
         return "bullish_engulfing";
       }
     }
-
+    
     if (current.close < current.open && prev.close > prev.open) {
       if (current.open > prev.close && current.close < prev.open && bodySize > prevBodySize * 0.8) {
         return "bearish_engulfing";
       }
     }
-
+    
     if (bodySize / totalRange < 0.1 && upperWick > bodySize * 2 && lowerWick > bodySize * 2) {
       return "doji";
     }
-
+    
     if (lowerWick > bodySize * 2 && upperWick < bodySize * 0.5) {
       if (prev.close < prev.open && prevPrev.close < prevPrev.open) {
         return "hammer";
       }
       return "pin_bar_bullish";
     }
-
+    
     if (upperWick > bodySize * 2 && lowerWick < bodySize * 0.5) {
       if (prev.close > prev.open && prevPrev.close > prevPrev.open) {
         return "shooting_star";
       }
       return "pin_bar_bearish";
     }
-
+    
     if (current.close > current.open && prev.close < prev.open && prevPrev.close < prevPrev.open) {
       if (current.close > (prev.open + prev.close) / 2) {
         return "morning_star";
       }
     }
-
+    
     if (current.close < current.open && prev.close > prev.open && prevPrev.close > prevPrev.open) {
       if (current.close < (prev.open + prev.close) / 2) {
         return "evening_star";
       }
     }
   }
-
+  
   return null;
 }
 
 export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
   const closes = candles.map(c => c.close);
-
+  
   const rsi = calculateRSI(closes, 14);
   const macd = calculateMACD(closes);
   const sma20 = calculateSMA(closes, 20);
@@ -529,67 +529,67 @@ export function analyzeTechnicals(candles: CandleData[]): TechnicalAnalysis {
   const adx = calculateADX(candles, 14);
   const supertrend = calculateSupertrend(candles, 10, 3);
   const candlePattern = detectCandlePattern(candles);
-
+  
   const currentPrice = closes[closes.length - 1];
-
+  
   const bollingerBreakout = currentPrice > bbands.upper || currentPrice < bbands.lower;
   const bollingerBands = {
     ...bbands,
     breakout: bollingerBreakout,
   };
-
+  
   let trend: "BULLISH" | "BEARISH" | "NEUTRAL" = "NEUTRAL";
   let bullishSignals = 0;
   let bearishSignals = 0;
-
+  
   if (currentPrice > sma20) bullishSignals += 1.5;
   else bearishSignals += 1.5;
-
+  
   if (currentPrice > sma50) bullishSignals += 2;
   else bearishSignals += 2;
-
+  
   if (currentPrice > sma200) bullishSignals += 2.5;
   else bearishSignals += 2.5;
-
+  
   if (ema12 > ema26) bullishSignals += 2;
   else bearishSignals += 2;
-
+  
   if (macd.histogram > 0 && macd.macdLine > macd.signalLine) bullishSignals += 2.5;
   else if (macd.histogram < 0 && macd.macdLine < macd.signalLine) bearishSignals += 2.5;
-
+  
   if (rsi < 30) bullishSignals += 3;
   else if (rsi < 40) bullishSignals += 1;
   else if (rsi > 70) bearishSignals += 3;
   else if (rsi > 60) bearishSignals += 1;
-
+  
   if (bollingerBands.percentB < 0.2) bullishSignals += 2;
   else if (bollingerBands.percentB > 0.8) bearishSignals += 2;
-
+  
   if (stochastic.k < 20 && stochastic.d < 20) bullishSignals += 2;
   else if (stochastic.k > 80 && stochastic.d > 80) bearishSignals += 2;
-
+  
   if (stochastic.k > stochastic.d && stochastic.k < 50) bullishSignals += 1;
   else if (stochastic.k < stochastic.d && stochastic.k > 50) bearishSignals += 1;
-
+  
   if (supertrend.direction === "BULLISH") bullishSignals += 3;
   else bearishSignals += 3;
-
+  
   if (adx > 25) {
     if (bullishSignals > bearishSignals) bullishSignals += 1.5;
     else bearishSignals += 1.5;
   }
-
+  
   if (bullishSignals > bearishSignals + 2) trend = "BULLISH";
   else if (bearishSignals > bullishSignals + 2) trend = "BEARISH";
-
+  
   const momentum: "STRONG" | "MODERATE" | "WEAK" = 
     adx > 40 || Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.5 ? "STRONG" :
     adx > 25 || Math.abs(macd.histogram) > Math.abs(macd.signalLine) * 0.2 ? "MODERATE" : "WEAK";
-
+  
   const volatility: "HIGH" | "MEDIUM" | "LOW" = 
     atr > bollingerBands.middle * 0.015 ? "HIGH" :
     atr > bollingerBands.middle * 0.008 ? "MEDIUM" : "LOW";
-
+  
   return {
     rsi,
     macd,
@@ -614,7 +614,7 @@ export async function generateSignalAnalysis(
   pair: string,
   timeframe: string,
   apiKey?: string
-): Promise<SignalAnalysis | null> {
+): Promise<SignalAnalysis> {
   const intervalMap: Record<string, string> = {
     "M1": "1min",
     "M5": "5min",
@@ -623,20 +623,20 @@ export async function generateSignalAnalysis(
     "H1": "60min",
     "H4": "60min",
   };
-
+  
   const interval = intervalMap[timeframe] || "5min";
   const candles = await getForexCandles(pair, interval, apiKey);
   const technicals = analyzeTechnicals(candles);
   const currentPrice = candles[candles.length - 1].close;
-
+  
   const pairAccuracy = getPairAccuracy(pair);
   const sessionTime = getCurrentSessionTime();
   const strictMode = sessionTime === "AFTERNOON" && (pairAccuracy === "MEDIUM" || pairAccuracy === "LOW");
-
+  
   const reasoning: string[] = [];
   let bullishScore = 0;
   let bearishScore = 0;
-
+  
   if (technicals.macd.histogram > 0 && technicals.macd.macdLine > technicals.macd.signalLine) {
     bullishScore += 40;
     reasoning.push("MACD bullish crossover with positive histogram (+40)");
@@ -644,7 +644,7 @@ export async function generateSignalAnalysis(
     bearishScore += 40;
     reasoning.push("MACD bearish crossover with negative histogram (+40)");
   }
-
+  
   if (technicals.supertrend.direction === "BULLISH") {
     bullishScore += 40;
     reasoning.push("Supertrend bullish - trend confirmation (+40)");
@@ -652,7 +652,7 @@ export async function generateSignalAnalysis(
     bearishScore += 40;
     reasoning.push("Supertrend bearish - trend confirmation (+40)");
   }
-
+  
   if (technicals.bollingerBands.breakout) {
     if (currentPrice > technicals.bollingerBands.upper) {
       bearishScore += 30;
@@ -668,7 +668,7 @@ export async function generateSignalAnalysis(
     bearishScore += 15;
     reasoning.push("Price near upper Bollinger Band (+15)");
   }
-
+  
   if (technicals.rsi >= 70) {
     bearishScore += 20;
     reasoning.push(`RSI overbought at ${technicals.rsi.toFixed(1)} - reversal signal (+20)`);
@@ -682,7 +682,7 @@ export async function generateSignalAnalysis(
     bullishScore += 10;
     reasoning.push(`RSI depressed at ${technicals.rsi.toFixed(1)} - bullish bias (+10)`);
   }
-
+  
   if (currentPrice > technicals.sma20 && currentPrice > technicals.sma50 && currentPrice > technicals.sma200) {
     bullishScore += 15;
     reasoning.push("Price above all major SMAs - strong uptrend (+15)");
@@ -696,7 +696,7 @@ export async function generateSignalAnalysis(
     bearishScore += 10;
     reasoning.push("Price below SMA20 and SMA50 (+10)");
   }
-
+  
   if (technicals.stochastic.k < 20 && technicals.stochastic.d < 20) {
     bullishScore += 15;
     reasoning.push(`Stochastic oversold (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)}) (+15)`);
@@ -704,12 +704,12 @@ export async function generateSignalAnalysis(
     bearishScore += 15;
     reasoning.push(`Stochastic overbought (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)}) (+15)`);
   }
-
+  
   const candlePattern = technicals.candlePattern;
   const confirmingPatterns = ["bullish_engulfing", "bearish_engulfing", "pin_bar_bullish", "pin_bar_bearish", "hammer", "shooting_star", "doji", "morning_star", "evening_star"];
   const bullishPatterns = ["bullish_engulfing", "pin_bar_bullish", "hammer", "morning_star"];
   const bearishPatterns = ["bearish_engulfing", "pin_bar_bearish", "shooting_star", "evening_star"];
-
+  
   if (candlePattern && confirmingPatterns.includes(candlePattern)) {
     if (bullishPatterns.includes(candlePattern)) {
       bullishScore += 15;
@@ -721,7 +721,7 @@ export async function generateSignalAnalysis(
       reasoning.push("Candle pattern: doji (neutral - indecision)");
     }
   }
-
+  
   if (technicals.adx > 40) {
     if (bullishScore > bearishScore) bullishScore += 10;
     else bearishScore += 10;
@@ -731,146 +731,143 @@ export async function generateSignalAnalysis(
     else bearishScore += 5;
     reasoning.push(`Strong trend (ADX: ${technicals.adx.toFixed(1)}) (+5)`);
   }
-
-  const scoreDiff = Math.abs(bullishScore - bearishScore);
-  const signalType: "CALL" | "PUT" = bullishScore >= bearishScore ? "CALL" : "PUT";
   
-  // FINAL SIGNAL ACCURACY RULES IMPLEMENTATION
-  // Skip extreme overbought/oversold conditions
-  if (technicals.rsi > 97 || technicals.rsi < 3) {
-    reasoning.push(`⚠ Skipped: RSI extreme (${technicals.rsi.toFixed(1)})`);
-    return null;
-  }
-  if (technicals.stochastic.k > 97 || technicals.stochastic.d > 97 || technicals.stochastic.k < 3 || technicals.stochastic.d < 3) {
-    reasoning.push(`⚠ Skipped: Stochastic extreme (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)})`);
-    return null;
-  }
-
-  // Short-term volatility filter
-  const lastCandle = candles[candles.length - 1];
-  const lastCandleRange = lastCandle.high - lastCandle.low;
-  const avgRange = technicals.atr;
-  if (lastCandleRange >= 1.5 * avgRange) {
-    reasoning.push(`⚠ Skipped: High short-term volatility (last candle range ${lastCandleRange.toFixed(4)} >= 1.5 * ATR ${avgRange.toFixed(4)})`);
-    return null;
-  }
-
-  // Candle confirmation check
-  const last2Candles = candles.slice(-2);
-  const bullishCandles = last2Candles.filter(c => c.close > c.open).length;
-  const bearishCandles = last2Candles.filter(c => c.close < c.open).length;
-
-  if (signalType === "CALL" && bullishCandles < 2) {
-    reasoning.push(`⚠ CALL signal requires 2 bullish candles - only ${bullishCandles} found - SKIPPED`);
-    return null;
-  }
-  if (signalType === "PUT" && bearishCandles < 2) {
-    reasoning.push(`⚠ PUT signal requires 2 bearish candles - only ${bearishCandles} found - SKIPPED`);
-    return null;
-  }
-
-  // Skip on indecision candles in extreme zones
-  if ((technicals.rsi > 90 || technicals.rsi < 10) && candlePattern && (candlePattern === 'doji' || candlePattern.includes('spinning'))) {
-    reasoning.push(`⚠ Skipped: Indecision candle (${candlePattern}) in extreme RSI zone`);
-    return null;
-  }
-
-  // Session-based filters
-  const isAfternoon = sessionTime === "AFTERNOON";
-  const isLowAccuracy = pairAccuracy === "LOW";
-  const isMediumAccuracy = pairAccuracy === "MEDIUM";
-
-  if (isAfternoon && (isLowAccuracy || isMediumAccuracy)) {
-    reasoning.push(`[Strict Mode] Afternoon session with ${pairAccuracy} accuracy pair.`);
-    if (scoreDiff < 40) {
-      reasoning.push(`⚠ Skipped: Low confluence (${scoreDiff}) in Strict Mode.`);
-      return null;
-    }
-    if (technicals.volatility === "HIGH") {
-        reasoning.push(`⚠ Skipped: High volatility in Strict Mode.`);
-        return null;
-    }
-  }
-
+  const signalType: "CALL" | "PUT" = bullishScore >= bearishScore ? "CALL" : "PUT";
   const winningScore = Math.max(bullishScore, bearishScore);
   const losingScore = Math.min(bullishScore, bearishScore);
+  const scoreDiff = winningScore - losingScore;
   
-  // Confluence categorization
+  // Enhanced confluence score calculation
   const confluenceScore = Math.round((winningScore / (winningScore + losingScore)) * 100);
+  const alignedScore = Math.round((scoreDiff / 200) * 100);
   
-  let baseConfidence = confluenceScore;
-  let confidenceReductions: string[] = [];
-
-  // Apply confidence reductions
-  if (technicals.rsi > 90 || technicals.stochastic.k > 90 || technicals.stochastic.d > 90) {
-      baseConfidence -= 10;
-      confidenceReductions.push(`⚠ Extreme overbought - reduced confidence by 10%`);
-  } else if (technicals.rsi < 10 || technicals.stochastic.k < 10 || technicals.stochastic.d < 10) {
-      baseConfidence -= 10;
-      confidenceReductions.push(`⚠ Extreme oversold - reduced confidence by 10%`);
+  // Candle pattern analysis - neutral patterns reduce confidence
+  const hasPatternConfirmation = candlePattern && confirmingPatterns.includes(candlePattern) && candlePattern !== "doji";
+  const isNeutralPattern = candlePattern === "doji" || candlePattern === "spinning_top";
+  const patternAligned = hasPatternConfirmation && 
+    ((signalType === "CALL" && bullishPatterns.includes(candlePattern!)) ||
+     (signalType === "PUT" && bearishPatterns.includes(candlePattern!)));
+  
+  const minThreshold = strictMode ? 70 : 60;
+  const signalBlocked = strictMode && (confluenceScore < minThreshold || !patternAligned);
+  
+  if (signalBlocked) {
+    reasoning.push(`[Strict Mode] Confluence ${confluenceScore}% below ${minThreshold}% threshold or pattern not aligned - signal quality reduced`);
   }
-
-  if (candlePattern && (candlePattern === 'doji' || candlePattern.includes('spinning'))) {
-      baseConfidence -= 8;
-      confidenceReductions.push(`⚠ Neutral candle pattern (${candlePattern}) - reduced confidence by 8%`);
-  }
-
-  let confidence = baseConfidence;
-  const isPatternAligned = candlePattern && 
-    ((signalType === 'CALL' && (bullishPatterns.includes(candlePattern))) ||
-     (signalType === 'PUT' && (bearishPatterns.includes(candlePattern))));
-
-  // Apply score difference caps
+  
+  let confidence: number;
+  let maxConfidence: number;
+  
   if (scoreDiff < 20) {
-      confidence = Math.min(confidence, 56);
-      confidenceReductions.push(`Low score difference (<20) - confidence capped at 56%`);
+    confidence = 50 + Math.round(scoreDiff * 0.3);
+    maxConfidence = 56;
+    reasoning.push(`Low confluence: indicators conflict (diff: ${scoreDiff}) - capped at ${maxConfidence}%`);
   } else if (scoreDiff < 40) {
-      confidence = Math.min(confidence, 70);
-      confidenceReductions.push(`Medium score difference (20-40) - confidence capped at 70%`);
+    confidence = 55 + Math.round((scoreDiff - 20) * 0.4);
+    maxConfidence = 70;
+    reasoning.push(`Moderate confluence (diff: ${scoreDiff})`);
   } else if (scoreDiff < 60) {
-      confidence = Math.min(confidence, 85);
-      confidenceReductions.push(`Good score difference (40-60) - confidence capped at 85%`);
+    confidence = 65 + Math.round((scoreDiff - 40) * 0.5);
+    maxConfidence = 85;
+    reasoning.push(`Good confluence: indicators mostly aligned (diff: ${scoreDiff})`);
   } else {
-      confidence = Math.min(confidence, 98);
+    confidence = 75 + Math.round((scoreDiff - 60) * 0.3);
+    maxConfidence = 98;
+    reasoning.push(`Strong confluence: indicators aligned (diff: ${scoreDiff})`);
   }
-
-  // Apply strict mode penalty
-  if (isAfternoon && (isLowAccuracy || isMediumAccuracy)) {
-    confidence = Math.max(confidence - 20, 0);
-    confidence = Math.min(confidence, 55);
-    confidenceReductions.push(`⚠ STRICT MODE: Medium/Low accuracy pair in afternoon - confidence reduced by 20% and capped at 55%`);
+  
+  if (scoreDiff >= 40) {
+    if (technicals.adx > 40) confidence += 5;
+    else if (technicals.adx > 25) confidence += 3;
+    
+    if (technicals.momentum === "STRONG") confidence += 3;
+    if (technicals.volatility === "LOW") confidence += 2;
+    
+    if (pairAccuracy === "HIGH") confidence += 5;
+    else if (pairAccuracy === "LOW") confidence -= 5;
+    
+    if (patternAligned) confidence += 8;
+    else if (hasPatternConfirmation && !patternAligned) confidence -= 10;
+  } else if (scoreDiff >= 20) {
+    if (pairAccuracy === "LOW") confidence -= 3;
+    if (hasPatternConfirmation && !patternAligned) confidence -= 5;
   }
-
-  reasoning.push(...confidenceReductions);
-
-  // Calculate TP/SL
-  const riskRewardRatio = scoreDiff >= 60 ? 3.0 : scoreDiff >= 40 ? 2.5 : scoreDiff >= 20 ? 2.0 : 1.8;
+  
+  if (strictMode) {
+    confidence = confidence - 20;
+    maxConfidence = Math.min(maxConfidence, 55);
+    if (!signalBlocked) {
+      reasoning.push(`[Strict Mode] Afternoon session with ${pairAccuracy} accuracy pair - confidence reduced by 20`);
+    }
+  }
+  
+  confidence = Math.min(maxConfidence, Math.max(45, Math.round(confidence)));
+  
   const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
-  let stopLossPips = 15;
-
-  if (technicals.rsi > 90 || technicals.rsi < 10 || technicals.stochastic.k > 90 || technicals.stochastic.k < 10) {
-    stopLossPips = 12; // Tighter SL in extreme zones
-    reasoning.push(`⚠ Tighter SL (12 pips) due to extreme zone`);
-  }
-
-  const takeProfitPips = stopLossPips * riskRewardRatio;
-
+  const volatilityMultiplier = technicals.atr / pipValue;
+  const atrMultiplier = technicals.volatility === "HIGH" ? 2.0 : technicals.volatility === "MEDIUM" ? 1.5 : 1.2;
+  const slPips = Math.max(technicals.atr * atrMultiplier, pipValue * 15);
+  const riskRewardRatio = confidence > 90 ? 3.0 : confidence > 80 ? 2.5 : confidence > 70 ? 2.0 : 1.8;
+  const tpPips = slPips * riskRewardRatio;
+  
+  const entry = currentPrice;
   const stopLoss = signalType === "CALL" 
-    ? currentPrice - (stopLossPips * pipValue)
-    : currentPrice + (stopLossPips * pipValue);
-
-  const takeProfit = signalType === "CALL"
-    ? currentPrice + (takeProfitPips * pipValue)
-    : currentPrice - (takeProfitPips * pipValue);
-
-  reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence.toFixed(0)}%`);
-
+    ? currentPrice - slPips 
+    : currentPrice + slPips;
+  const takeProfit = signalType === "CALL" 
+    ? currentPrice + tpPips 
+    : currentPrice - tpPips;
+  
+  reasoning.push(`Pair accuracy: ${pairAccuracy} | Session: ${sessionTime}${strictMode ? ' (STRICT)' : ''}`);
+  // EXTREME RSI/STOCHASTIC PENALTY
+  let extremePenalty = 0;
+  if (technicals.rsi > 90 || technicals.stochastic.k > 90 || technicals.stochastic.d > 90) {
+    extremePenalty = 10;
+    reasoning.push("⚠ Extreme overbought - reduced confidence by 10%");
+  } else if (technicals.rsi < 10 || technicals.stochastic.k < 10 || technicals.stochastic.d < 10) {
+    extremePenalty = 10;
+    reasoning.push("⚠ Extreme oversold - reduced confidence by 10%");
+  }
+  
+  // NEUTRAL CANDLE PATTERN PENALTY
+  let neutralPatternPenalty = 0;
+  if (isNeutralPattern) {
+    neutralPatternPenalty = 8;
+    reasoning.push("⚠ Neutral candle pattern (doji/spinning top) - reduced confidence by 8%");
+  }
+  
+  // Apply all penalties
+  confidence = Math.max(45, confidence - extremePenalty - neutralPatternPenalty);
+  
+  // STRICT CONFIDENCE CAPPING based on confluence
+  if (scoreDiff < 20) {
+    confidence = Math.min(confidence, 56);
+    reasoning.push("Low score difference (<20) - confidence capped at 56%");
+  } else if (scoreDiff < 40) {
+    confidence = Math.min(confidence, 70);
+    reasoning.push("Medium score difference (20-40) - confidence capped at 70%");
+  } else if (scoreDiff < 60) {
+    confidence = Math.min(confidence, 85);
+    reasoning.push("Good score difference (40-60) - confidence capped at 85%");
+  } else {
+    confidence = Math.min(confidence, 98);
+  }
+  
+  // STRICT MODE for low accuracy pairs or weak sessions
+  if (strictMode) {
+    confidence = Math.max(45, confidence - 20);
+    confidence = Math.min(confidence, 55);
+    reasoning.push("⚠ STRICT MODE: Medium/Low accuracy pair in afternoon - confidence reduced by 20% and capped at 55%");
+  }
+  
+  reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence}%`);
+  
   return {
     pair,
     currentPrice,
     signalType,
     confidence,
-    entry: currentPrice,
+    entry,
     stopLoss,
     takeProfit,
     technicals,
@@ -882,13 +879,13 @@ function calculateATR(candles: CandleData[], period: number = 14): number {
   if (candles.length < period + 1) {
     return (candles[candles.length - 1].high - candles[candles.length - 1].low);
   }
-
+  
   const trs: number[] = [];
   for (let i = 1; i < candles.length; i++) {
     const high = candles[i].high;
     const low = candles[i].low;
     const prevClose = candles[i - 1].close;
-
+    
     const tr = Math.max(
       high - low,
       Math.abs(high - prevClose),
@@ -896,7 +893,7 @@ function calculateATR(candles: CandleData[], period: number = 14): number {
     );
     trs.push(tr);
   }
-
+  
   return trs.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
