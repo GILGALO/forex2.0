@@ -138,9 +138,9 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       const intervalMs = intervalMinutes * 60 * 1000;
       const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
 
-      // Convert UTC to GMT-4 (New York time) by subtracting 4 hours
-      const GMT_OFFSET_MS = -4 * 60 * 60 * 1000; // -4 hours in milliseconds
-      const startTimeDate = new Date(nextCandleTimestamp + GMT_OFFSET_MS);
+      // Convert UTC to Kenya Time (UTC+3) by adding 3 hours
+      const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
+      const startTimeDate = new Date(nextCandleTimestamp + KENYA_OFFSET_MS);
       const endTimeDate = addMinutes(startTimeDate, 5);
 
       // Calculate next entry time for Martingale (next candle)
