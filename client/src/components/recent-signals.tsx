@@ -11,7 +11,7 @@ interface RecentSignalsProps {
   signals: Signal[];
 }
 
-export function RecentSignals({ signals }: RecentSignalsProps) {
+export default function RecentSignals({ signals }: RecentSignalsProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'won' | 'lost'>('all');
 
   const filteredSignals = signals.filter(signal => {

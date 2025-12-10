@@ -36,7 +36,7 @@ interface SignalAnalysisResponse {
   reasoning: string[];
 }
 
-export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorProps) {
+export default function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorProps) {
   const [currentSession, setCurrentSession] = useState(getCurrentSession());
   const [availablePairs, setAvailablePairs] = useState<string[]>(currentSession.pairs);
   const [selectedPair, setSelectedPair] = useState<string>(currentSession.pairs[0]);

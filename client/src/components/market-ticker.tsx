@@ -1,7 +1,7 @@
 
 import { Ticker } from "react-ts-tradingview-widgets";
 
-export function MarketTicker() {
+export default function MarketTicker() {
   return (
     <div className="w-full glass-panel border-b border-primary/30 overflow-hidden h-[52px] relative z-50 shadow-lg">
       <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-r from-background via-transparent to-background" />

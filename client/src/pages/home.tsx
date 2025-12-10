@@ -10,10 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const MarketTicker = lazy(() => import("@/components/market-ticker").then(m => ({ default: m.MarketTicker })));
-const SignalGenerator = lazy(() => import("@/components/signal-generator").then(m => ({ default: m.SignalGenerator })));
-const RecentSignals = lazy(() => import("@/components/recent-signals").then(m => ({ default: m.RecentSignals })));
-const TradingChart = lazy(() => import("@/components/trading-chart").then(m => ({ default: m.TradingChart })));
+const MarketTicker = lazy(() => import("@/components/market-ticker"));
+const SignalGenerator = lazy(() => import("@/components/signal-generator"));
+const RecentSignals = lazy(() => import("@/components/recent-signals"));
+const TradingChart = lazy(() => import("@/components/trading-chart"));
 
 
 export default function Home() {
