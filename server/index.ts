@@ -73,8 +73,25 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    log(`Error: ${message}`, "error");
     res.status(status).json({ message });
-    throw err;
+    
+    // Don't throw error to prevent server crash
+    if (process.env.NODE_ENV === "development") {
+      console.error(err);
+    }
+  });
+  
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (err) => {
+    log(`Uncaught Exception: ${err.message}`, "error");
+    console.error('Uncaught Exception:', err);
+  });
+  
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    log(`Unhandled Rejection at: ${promise}, reason: ${reason}`, "error");
+    console.error('Unhandled Rejection:', reason);
   });
 
   // importantly only setup vite in development and after

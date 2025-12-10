@@ -125,16 +125,17 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
           
           // Check if we got any valid signals
           if (!scanData.bestSignal || scanData.bestSignal.confidence === 0) {
-            console.log(`All signals blocked by filters. Valid: ${scanData.stats.valid}/${scanData.stats.total}`);
+            console.log(`Rescan ${scanAttempts}/${MAX_RESCAN_ATTEMPTS}: No valid signals found`);
             
             if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
-              // Show notification but don't exit - keep timer running
+              console.log('Max rescans reached, scheduling next attempt');
+              // Keep timer running
               if (isAuto) {
                 const nextScan = Date.now() + (7 * 60 * 1000);
                 setNextSignalTime(nextScan);
-                setIsAnalyzing(false);
               }
-              return; // Exit signal generation but keep app running
+              setIsAnalyzing(false);
+              return; // Exit gracefully
             }
             
             // Wait before next rescan
@@ -182,6 +183,8 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
           const nextScan = Date.now() + (7 * 60 * 1000);
           setNextSignalTime(nextScan);
         }
+        
+        setIsAnalyzing(false);
         return; // Exit signal generation loop only
       }
 
@@ -230,18 +233,17 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
         setNextSignalTime(nextScan);
       }
     } catch (error) {
-      console.error('Signal generation error:', error);
+      // Safely log error without causing additional crashes
+      if (error instanceof Error) {
+        console.error('Signal generation error:', error.message);
+      } else {
+        console.error('Signal generation error: Unknown error type');
+      }
       
       // Keep timer running even on error
       if (isAuto) {
         const nextScan = Date.now() + (7 * 60 * 1000);
         setNextSignalTime(nextScan);
-      }
-      
-      // Only show toast for unexpected errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (!errorMessage.includes('Max rescan') && !errorMessage.includes('No valid')) {
-        console.log('Non-critical error, continuing...');
       }
     } finally {
       setIsAnalyzing(false);
