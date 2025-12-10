@@ -122,6 +122,25 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
           });
           if (!scanResponse.ok) throw new Error('Scan failed');
           const scanData = await scanResponse.json();
+          
+          // Check if we got any valid signals
+          if (!scanData.bestSignal || scanData.bestSignal.confidence === 0) {
+            console.log(`All signals blocked by filters. Valid: ${scanData.stats.valid}/${scanData.stats.total}`);
+            
+            if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
+              toast({ 
+                title: "No Valid Signals", 
+                description: `All ${scanData.stats.total} pairs blocked by safety filters. Market conditions not favorable.`,
+                variant: "destructive" 
+              });
+              return; // Exit early - no valid signals found
+            }
+            
+            // Wait before next rescan
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
           analysisResult = scanData.bestSignal;
           currentPair = analysisResult.pair;
           setSelectedPair(currentPair);
@@ -138,20 +157,27 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
         setLastAnalysis(analysisResult);
 
-        if (analysisResult.confidence >= MIN_CONFIDENCE_THRESHOLD) {
+        if (analysisResult && analysisResult.confidence >= MIN_CONFIDENCE_THRESHOLD) {
           foundGoodSignal = true;
         } else {
-          console.log(`Low confidence (${analysisResult.confidence}%), rescanning...`);
+          console.log(`Low confidence (${analysisResult?.confidence || 0}%), rescanning...`);
           if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
-            toast({ title: "Low Confidence", description: `Could not find a signal with sufficient confidence after ${MAX_RESCAN_ATTEMPTS} attempts.`, variant: "warning" });
-            throw new Error('Max rescan attempts reached');
+            toast({ 
+              title: "Low Confidence", 
+              description: `Could not find a signal with sufficient confidence after ${MAX_RESCAN_ATTEMPTS} attempts.`,
+              variant: "destructive" 
+            });
+            return; // Exit early instead of throwing error
           }
           // Optional: Add a delay before rescanning
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
-      if (!foundGoodSignal) return; // Exit if no good signal was found after attempts
+      if (!foundGoodSignal || !analysisResult) {
+        console.log("No valid signal found after all rescan attempts");
+        return; // Exit if no good signal was found after attempts
+      }
 
       const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000;
       const nowUTC = new Date();
@@ -200,8 +226,15 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
       }
     } catch (error) {
       console.error('Signal generation error:', error);
-      if (!error.message.includes('Max rescan attempts reached')) {
-        toast({ title: "Error", description: "Analysis failed. Please retry.", variant: "destructive" });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Don't show error toast for expected conditions
+      if (!errorMessage.includes('Max rescan attempts') && !errorMessage.includes('No valid signals')) {
+        toast({ 
+          title: "Analysis Error", 
+          description: "Market analysis failed. Please try again.",
+          variant: "destructive" 
+        });
       }
     } finally {
       setIsAnalyzing(false);
