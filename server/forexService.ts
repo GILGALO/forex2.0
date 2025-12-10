@@ -1135,15 +1135,6 @@ export async function generateSignalAnalysis(
     }
   }
 
-  // Session-based minimum confidence filter
-  const isAfternoon = sessionTime === "AFTERNOON";
-  const isLowAccuracyPair = pairAccuracy === "LOW";
-
-  if ((isAfternoon || isLowAccuracyPair) && confidence < 85 && scoreDiff < 60) {
-    confidence = 0; // Block this trade
-    reasoning.push(`BLOCKED: ${isAfternoon ? 'Afternoon' : 'Low-accuracy'} session requires confidence ≥85% (current: ${confidence}%)`);
-  }
-
   confidence = Math.min(maxConfidence, Math.max(45, Math.round(confidence)));
 
   const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
@@ -1219,7 +1210,10 @@ export async function generateSignalAnalysis(
 
   // SESSION-BASED MINIMUM (afternoon/evening = require 85% confidence to proceed)
   // This is a soft gate after all penalties are applied
-  if ((sessionTime === "AFTERNOON" || pairAccuracy === "LOW") && confidence < 85 && scoreDiff < 60) {
+  const isAfternoonSession = sessionTime === "AFTERNOON";
+  const isLowAccuracyPair = pairAccuracy === "LOW";
+  
+  if ((isAfternoonSession || isLowAccuracyPair) && confidence < 85 && scoreDiff < 60) {
     confidence = 0; // Block this trade
     reasoning.push(`BLOCKED: ${sessionTime === "AFTERNOON" ? 'Afternoon' : 'Low-accuracy'} session requires confidence ≥85% (current: ${confidence}%)`);
   }
