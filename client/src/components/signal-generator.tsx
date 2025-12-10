@@ -103,7 +103,7 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
     setLastAnalysis(null);
 
     try {
-      let analysisResult: SignalAnalysisResponse;
+      let analysisResult: SignalAnalysisResponse | undefined;
       let currentPair = selectedPair;
       let scanAttempts = 0;
       let foundGoodSignal = false;
@@ -143,7 +143,7 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
             continue;
           }
           
-          analysisResult = scanData.bestSignal;
+          analysisResult = scanData.bestSignal as SignalAnalysisResponse;
           currentPair = analysisResult.pair;
           setSelectedPair(currentPair);
           onPairChange(currentPair);
@@ -157,7 +157,9 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
           analysisResult = await response.json();
         }
 
-        setLastAnalysis(analysisResult);
+        if (analysisResult) {
+          setLastAnalysis(analysisResult);
+        }
 
         if (analysisResult && analysisResult.confidence >= MIN_CONFIDENCE_THRESHOLD) {
           foundGoodSignal = true;
@@ -259,7 +261,7 @@ function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGeneratorPro
         if (nextSignalTime && Date.now() >= nextSignalTime && !isAnalyzing) {
           generateSignal(true);
         }
-      }, 1000);
+      }, 5000);
       return () => clearInterval(checkInterval);
     } else {
       setNextSignalTime(null);
