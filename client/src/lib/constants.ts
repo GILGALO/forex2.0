@@ -72,8 +72,11 @@ export const TRADING_SESSIONS = {
 } as const;
 
 export function getCurrentSession(): { name: string; pairs: string[] } {
-  const now = new Date();
-  const hour = now.getHours(); // Already in GMT-4
+  // Get current time in Kenya (UTC+3)
+  const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000;
+  const nowUTC = new Date();
+  const nowKenya = new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
+  const hour = nowKenya.getHours();
 
   // Check each session
   for (const session of Object.values(TRADING_SESSIONS)) {

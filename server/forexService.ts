@@ -68,7 +68,12 @@ function getPairAccuracy(pair: string): PairAccuracy {
 }
 
 function getCurrentSessionTime(): SessionTime {
-  const hour = new Date().getUTCHours();
+  // Get current time in Kenya (UTC+3)
+  const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000;
+  const nowUTC = new Date();
+  const nowKenya = new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
+  const hour = nowKenya.getHours();
+  
   if (hour >= 7 && hour < 12) return "MORNING";
   if (hour >= 12 && hour < 17) return "AFTERNOON";
   return "EVENING";

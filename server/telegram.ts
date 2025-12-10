@@ -5,6 +5,13 @@ import type { SignalAnalysis } from "./forexService";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
+// Helper function to get current time in Kenya (UTC+3)
+function getKenyaTime(): Date {
+  const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
+  const nowUTC = new Date();
+  return new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
+}
+
 function getConfidenceEmoji(confidence: number): string {
   if (confidence >= 90) return "🔥";
   if (confidence >= 70) return "⚡";
@@ -36,7 +43,8 @@ function getSMAStatus(price: number, sma20: number, sma50: number, sma200: numbe
 }
 
 function isSessionHotZone(): { isHotZone: boolean; session: string } {
-  const hour = new Date().getUTCHours();
+  const kenyaTime = getKenyaTime();
+  const hour = kenyaTime.getHours();
   let session = "EVENING";
   let isHotZone = false;
   

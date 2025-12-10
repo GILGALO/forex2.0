@@ -129,18 +129,21 @@ export function SignalGenerator({ onSignalGenerated, onPairChange }: SignalGener
 
       setLastAnalysis(analysisResult);
 
-      const now = new Date();
+      // Get current time in Kenya (UTC+3)
+      const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
+      const nowUTC = new Date();
+      const nowKenya = new Date(nowUTC.getTime() + KENYA_OFFSET_MS);
+      
       let intervalMinutes = 5;
       if (timeframe.startsWith('M')) intervalMinutes = parseInt(timeframe.substring(1));
       else if (timeframe.startsWith('H')) intervalMinutes = parseInt(timeframe.substring(1)) * 60;
 
-      const minStartTime = addMinutes(now, 7);
+      const minStartTime = addMinutes(nowKenya, 7);
       const intervalMs = intervalMinutes * 60 * 1000;
       const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
 
-      // Convert UTC to Kenya Time (UTC+3) by adding 3 hours
-      const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
-      const startTimeDate = new Date(nextCandleTimestamp + KENYA_OFFSET_MS);
+      // Times are already in Kenya timezone
+      const startTimeDate = new Date(nextCandleTimestamp);
       const endTimeDate = addMinutes(startTimeDate, 5);
 
       // Calculate next entry time for Martingale (next candle)
