@@ -1,0 +1,50 @@
+ULTRA-POWER SIGNAL ACCURACY UPGRADE (ONE-SHOT MODE):
+
+1. **Timeframe & Higher Timeframe Alignment:**  
+   - M5 trades only.  
+   - Enter trade **only if M15 and H1 trend matches M5 direction**. Skip if conflict.  
+
+2. **Fixed Stakes Only:**  
+   - Martingale disabled. Fixed stake per trade.  
+
+3. **Kenya Time Enforcement:**  
+   - All Start/End Times in Kenya Time (EAT, UTC+3).  
+
+4. **Advanced Confluence Scoring:**  
+   - Indicators: RSI, Stochastic, MACD, Supertrend, SMA/EMA, ADX, Bollinger Bands, Volume/Momentum, Candlestick Patterns.  
+   - Strong alignment → high confidence; conflicting → reduce confidence.  
+   - Filter: momentum spikes, Bollinger squeeze/breakouts, high-volatility candles.  
+
+5. **Extreme Zone Handling (Stronger):**  
+   - Skip if RSI >97 or <3, or Stochastic K/D >97 or <3.  
+   - Dynamic thresholds per pair based on historical volatility.  
+   - Reduce confidence 5–15% for RSI 90–97 or Stochastic 90–97.  
+   - Skip trades if price is outside Bollinger Bands AND extreme indicator readings.  
+
+6. **Candlestick Confirmation (Stronger):**  
+   - Require 2–3 consecutive trend-confirming candles.  
+   - Only allow strong continuation patterns (Engulfing, Hammer, Shooting Star).  
+   - Skip neutral/indecisive candles in extreme zones.  
+
+7. **Session & Pair Prioritization:**  
+   - Morning (7–12 EAT): all high-accuracy pairs prioritized.  
+   - Afternoon (12–5 EAT): only high-confidence, high-accuracy pairs.  
+   - Evening/Night (5–7 EAT): skip medium/low pairs; take only strongest setups.  
+
+8. **TP/SL & Risk Management:**  
+   - TP/SL fixed normally.  
+   - Slight adjustment if extreme RSI/Stochastic or strong momentum reversal risk.  
+   - Confidence = indicators + candle + higher timeframe + session + momentum/volatility.  
+
+9. **Adaptive Logging & Learning:**  
+   - Log every trade: Pair, Entry, SL, TP, Confidence %, Indicators, Candle Pattern, Higher TF trend, Session, Win/Loss.  
+   - Track historically best-performing setups per pair/session; prioritize automatically.  
+
+10. **Telegram Output:**  
+    - Include: Pair, Buy/Sell, Entry, SL, TP, Confidence %, RSI/Stochastic, Candle Pattern, Confluence Score, Higher Timeframe Trend, Kenya Time Start/End.  
+
+11. **Safety & Non-Disruption of Wins:**  
+    - Never alter existing high-probability winning trades.  
+    - Filters only block high-risk or low-conviction trades.  
+
+💡 **Goal:** Maximize winning probability (~75–85% high-accuracy pairs, morning session), reduce risky losses, maintain Kenya Time, fixed stakes, preserve all strong winning signals.  
