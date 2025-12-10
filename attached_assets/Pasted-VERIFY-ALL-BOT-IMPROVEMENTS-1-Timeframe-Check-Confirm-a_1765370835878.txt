@@ -1,0 +1,29 @@
+VERIFY ALL BOT IMPROVEMENTS:
+
+1. **Timeframe Check:** Confirm all trades are strictly M5 (5-minute trades).  
+2. **Fixed Stakes Only:** Verify martingale or progressive staking is fully disabled.  
+3. **Kenya Time Verification:** Ensure Start Time and End Time are correctly displayed in Kenya Time (EAT, UTC+3) for all signals.  
+4. **Indicator Confluence Check:**  
+   - Verify RSI, Stochastic, MACD, Supertrend, SMA/EMA, ADX, and candle patterns are used to calculate a confluence score.  
+   - Strong confluence increases confidence, conflicting indicators reduce confidence.  
+5. **Extreme Overbought/Oversold Handling:**  
+   - Confirm trades are skipped if RSI > 97 or < 3, and/or Stochastic K/D > 97 or < 3.  
+   - Check that confidence is reduced by 5–10% for RSI 90–97 or Stochastic 90–97.  
+6. **Candlestick Confirmation:**  
+   - Confirm that 2 consecutive trend-confirming candles are required for entry.  
+   - Ensure trades are avoided on indecision candles (Doji, Spinning Top) in extreme zones.  
+7. **Session-Based Risk Filters:**  
+   - Confirm afternoon/low-accuracy sessions only take trades with confidence ≥ 85%.  
+   - Optional: stakes slightly reduced in weaker sessions.  
+8. **Short-Term Volatility Filter:**  
+   - Verify trades are skipped if last candle range ≥1.5x average M5 range.  
+9. **TP/SL Management:**  
+   - Check TP/SL is fixed for normal trades.  
+   - For extreme overbought/oversold, slight adjustment of SL or partial TP applied correctly.  
+10. **Confidence & Output Check:**  
+    - Confidence scoring reflects all indicators, candle patterns, and session context.  
+    - Telegram signals include: Pair, Buy/Sell, Entry, SL, TP, Confidence %, RSI/Stochastic, Candle Pattern, Confluence Score, Kenya Time Start/End.  
+11. **Logging Verification:** Ensure every trade is logged with Confidence, indicators, candle pattern, win/loss result, and session.  
+12. **Safety Check:** Confirm no changes break trades that are already high-probability wins.  
+
+💡 **Goal:** Verify that all previous improvements are fully implemented, M5 fixed-stake rules are active, Kenya Time is correct, and high-probability trades remain intact.  
