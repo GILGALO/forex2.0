@@ -122,11 +122,11 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
           });
           if (!scanResponse.ok) throw new Error('Scan failed');
           const scanData = await scanResponse.json();
-          
+
           // Check if we got any valid signals
           if (!scanData.bestSignal || scanData.bestSignal.confidence === 0) {
             console.log(`Rescan ${scanAttempts}/${MAX_RESCAN_ATTEMPTS}: No valid signals found`);
-            
+
             if (scanAttempts >= MAX_RESCAN_ATTEMPTS) {
               console.log('Max rescans reached, scheduling next attempt');
               // Keep timer running
@@ -137,12 +137,12 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
               setIsAnalyzing(false);
               return; // Exit gracefully
             }
-            
+
             // Wait before next rescan
             await new Promise(resolve => setTimeout(resolve, 2000));
             continue;
           }
-          
+
           analysisResult = scanData.bestSignal as SignalAnalysisResponse;
           currentPair = analysisResult.pair;
           setSelectedPair(currentPair);
@@ -179,13 +179,13 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
 
       if (!foundGoodSignal || !analysisResult) {
         console.log("No valid signal found after all rescan attempts");
-        
+
         // Keep timer running in auto mode
         if (isAuto) {
           const nextScan = Date.now() + (7 * 60 * 1000);
           setNextSignalTime(nextScan);
         }
-        
+
         setIsAnalyzing(false);
         return; // Exit signal generation loop only
       }
@@ -241,7 +241,7 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
       } else {
         console.error('Signal generation error: Unknown error type');
       }
-      
+
       // Keep timer running even on error
       if (isAuto) {
         const nextScan = Date.now() + (7 * 60 * 1000);
@@ -292,6 +292,23 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
     }, [nextSignalTime]);
     if (!nextSignalTime || !timeLeft) return null;
     return <span className="font-mono text-sm text-primary font-bold">{timeLeft}</span>;
+  };
+
+  const downloadIcon = async () => {
+    try {
+      const response = await fetch('/icon.svg');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'PocketTradeMaster-Icon.svg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download icon:', error);
+    }
   };
 
   return (
@@ -441,7 +458,7 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
                 Quick Rescan
               </Button>
             </motion.div>
-            
+
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
@@ -451,6 +468,17 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Signal
+              </Button>
+            </motion.div>
+
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button
+                onClick={downloadIcon}
+                variant="outline"
+                className="gap-2 w-full h-10 glass-panel border-purple-500/30 hover:border-purple-500/60 text-purple-400 hover:text-purple-300"
+              >
+                <Download className="h-4 w-4" />
+                Download Icon
               </Button>
             </motion.div>
           </div>
