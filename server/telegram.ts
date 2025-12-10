@@ -68,87 +68,114 @@ export async function sendToTelegram(
   isAuto: boolean = false
 ): Promise<boolean> {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.log("Telegram not configured");
+    console.log("[telegram] Telegram credentials not configured");
+    return false;
+  }
+
+  // Skip sending if confidence is 0 (trade was skipped by risk filters)
+  if (signal.confidence === 0) {
+    console.log("[telegram] Signal skipped - confidence is 0 (risk filter triggered)");
     return false;
   }
 
   try {
     const confidenceEmoji = getConfidenceEmoji(signal.confidence);
     const modeLabel = isAuto ? "AUTO" : "MANUAL";
+    const { isHotZone, session } = isSessionHotZone();
     
-    let message = `🚀 NEW HIGH-CONFIDENCE SIGNAL (${modeLabel})\n\n`;
-    message += `📊 Pair: ${signal.pair}\n`;
-    message += `⚡ Type: ${signal.type} (${signal.timeframe})\n\n`;
-    message += `⏱ Entry Time: ${signal.startTime} - ${signal.endTime}\n`;
-    message += `🎯 Entry Price: ${signal.entry.toFixed(5)}\n`;
-    message += `🛑 Stop Loss: ${signal.stopLoss.toFixed(5)}\n`;
-    message += `💰 Take Profit: ${signal.takeProfit.toFixed(5)}\n\n`;
-    message += `💪 Confidence: ${signal.confidence}% ${confidenceEmoji}\n\n`;
+    // Extract confluence score from reasoning
+    let confluenceScore = 70;
+    if (analysis?.reasoning) {
+      const confluenceMatch = analysis.reasoning.find(r => r.includes("Final Confluence:"));
+      if (confluenceMatch) {
+        const match = confluenceMatch.match(/Final Confluence: (\d+)%/);
+        if (match) confluenceScore = parseInt(match[1]);
+      }
+    }
+    
+    let message = `🚀 NEW SIGNAL (${modeLabel})\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    
+    // Core Signal Info
+    message += `📊 <b>Pair:</b> ${signal.pair}\n`;
+    message += `⚡ <b>Signal:</b> ${signal.type === "CALL" ? "BUY 📈" : "SELL 📉"}\n`;
+    message += `📉 <b>Timeframe:</b> ${signal.timeframe} (M5)\n\n`;
+    
+    // Kenya Time Start/End
+    message += `⏰ <b>Kenya Time Start:</b> ${signal.startTime} EAT\n`;
+    message += `⏰ <b>Kenya Time End:</b> ${signal.endTime} EAT\n\n`;
+    
+    // Trade Levels
+    message += `🎯 <b>Entry:</b> ${signal.entry.toFixed(5)}\n`;
+    message += `🛑 <b>Stop Loss:</b> ${signal.stopLoss.toFixed(5)}\n`;
+    message += `💰 <b>Take Profit:</b> ${signal.takeProfit.toFixed(5)}\n\n`;
+    
+    // Confidence
+    message += `💪 <b>Confidence:</b> ${signal.confidence}% ${confidenceEmoji}\n`;
+    message += `📊 <b>Confluence Score:</b> ${confluenceScore}%\n\n`;
 
     if (analysis?.technicals) {
       const tech = analysis.technicals;
       
-      // Calculate confluence score from reasoning
-      const confluenceMatches = analysis.reasoning.filter(r => 
-        r.includes("MACD") || r.includes("Supertrend") || r.includes("RSI") || 
-        r.includes("Bollinger") || r.includes("SMA")
-      );
-      const confluenceScore = Math.min(95, 50 + (confluenceMatches.length * 8));
-
-      message += `📈 Trade Rationale:\n`;
-      message += `• Indicator Confluence: ${confluenceScore}%\n`;
-      message += `• RSI: ${tech.rsi.toFixed(1)} (${getRSIStatus(tech.rsi)})\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      message += `📈 <b>TECHNICAL INDICATORS</b>\n`;
+      message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
       
-      const macdDirection = tech.macd.histogram > 0 ? "Bullish crossover" : "Bearish crossover";
-      message += `• MACD: ${macdDirection}\n`;
-      message += `• Supertrend: ${tech.supertrend.direction}\n`;
+      // RSI & Stochastic
+      message += `• <b>RSI:</b> ${tech.rsi.toFixed(1)} (${getRSIStatus(tech.rsi)})\n`;
+      message += `• <b>Stochastic K/D:</b> ${tech.stochastic.k.toFixed(1)} / ${tech.stochastic.d.toFixed(1)}\n`;
       
+      // MACD
+      const macdDirection = tech.macd.histogram > 0 ? "Bullish" : "Bearish";
+      message += `• <b>MACD:</b> ${macdDirection} (Hist: ${tech.macd.histogram.toFixed(5)})\n`;
+      
+      // Supertrend
+      message += `• <b>Supertrend:</b> ${tech.supertrend.direction}\n`;
+      
+      // ADX
+      message += `• <b>ADX:</b> ${tech.adx.toFixed(1)} (${tech.adx > 40 ? "Very Strong" : tech.adx > 25 ? "Strong" : "Weak"} Trend)\n`;
+      
+      // Bollinger
       const bollingerStatus = getBollingerStatus(tech.bollingerBands.breakout, tech.bollingerBands.percentB);
-      message += `• Bollinger: ${bollingerStatus}\n`;
+      message += `• <b>Bollinger:</b> ${bollingerStatus}\n`;
       
+      // SMA Status
       const smaStatus = getSMAStatus(analysis.currentPrice, tech.sma20, tech.sma50, tech.sma200);
-      message += `• SMA/EMA Trend: ${smaStatus}\n`;
-      message += `• ADX: ${tech.adx.toFixed(1)} (${tech.adx > 25 ? "Strong" : "Weak"} Trend)\n`;
+      message += `• <b>SMA Trend:</b> ${smaStatus}\n`;
       
-      const candlePattern = tech.candlePattern ? tech.candlePattern.replace(/_/g, ' ').toUpperCase() : "NONE";
-      message += `• Candle Pattern: ${candlePattern}\n`;
+      // Candle Pattern
+      const candlePattern = tech.candlePattern ? tech.candlePattern.replace(/_/g, ' ').toUpperCase() : "None";
+      message += `• <b>Candle Pattern:</b> ${candlePattern}\n\n`;
       
-      // Warnings for extreme overbought/oversold
-      if (tech.rsi > 90 || tech.stochastic.k > 90) {
-        message += `\n⚠️ CAUTION: Extreme overbought detected - monitor for early reversal\n`;
-      } else if (tech.rsi < 10 || tech.stochastic.k < 10) {
-        message += `\n⚠️ CAUTION: Extreme oversold detected - monitor for early reversal\n`;
+      // Risk Warnings
+      if (tech.rsi > 90 || tech.stochastic.k > 90 || tech.stochastic.d > 90) {
+        message += `⚠️ <b>CAUTION:</b> Extreme overbought - watch for reversal\n`;
+      } else if (tech.rsi < 10 || tech.stochastic.k < 10 || tech.stochastic.d < 10) {
+        message += `⚠️ <b>CAUTION:</b> Extreme oversold - watch for reversal\n`;
       }
       
-      // Doji warning
-      if (tech.candlePattern === "doji") {
-        message += `⚠️ NOTE: Doji pattern shows indecision - entry timing critical\n`;
+      if (tech.candlePattern === "doji" || tech.candlePattern === "spinning_top") {
+        message += `⚠️ <b>NOTE:</b> Indecision pattern - entry timing critical\n`;
       }
-      
-      message += `\n`;
-
-      // Session hot-zone info
-      const { isHotZone, session } = isSessionHotZone();
-      message += `⚡ Strict Mode Notes: ${session === "AFTERNOON" ? "Active - Higher threshold required" : "Standard analysis"}\n`;
-      message += `🌍 Session Hot-Zone: ${isHotZone ? "YES ✅" : "NO"} (${session})\n\n`;
-
-      // Analysis details
-      message += `🔍 Analysis:\n`;
-      message += `• Only executed because confluence score ≥ threshold.\n`;
-      
-      const modifiers = analysis.reasoning.filter(r => r.includes("+")).slice(0, 3);
-      message += `• Positive modifiers applied: ${modifiers.length > 0 ? modifiers.join(", ") : "Standard indicators"}\n`;
-      message += `• Trade filtered by hot-zone session: ${session}\n`;
-      message += `• Trade skipped if pair had consecutive losses, news event, or correlated conflict.\n\n`;
     }
+    
+    // Session Info
+    message += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `🌍 <b>SESSION INFO</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `• <b>Session:</b> ${session}\n`;
+    message += `• <b>Hot Zone:</b> ${isHotZone ? "YES ✅" : "NO ⚠️"}\n`;
+    message += `• <b>Mode:</b> ${session === "AFTERNOON" ? "STRICT (85%+ required)" : "Standard"}\n\n`;
 
-    message += `📌 Trading Rules:\n`;
-    message += `- ✅ FIXED STAKE ONLY (No Martingale)\n`;
-    message += `- ✅ M5 TIMEFRAME (5-minute trades for accuracy)\n`;
-    message += `- ✅ KENYA TIME (EAT, UTC+3)\n`;
-    message += `- ✅ Adaptive TP/SL based on volatility & trend strength\n`;
-    message += `- ✅ Confluence-based confidence scoring\n`;
-    message += `- ✅ Session hot-zone filtering applied\n`;
+    // Trading Rules
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📌 <b>TRADING RULES</b>\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `✅ FIXED STAKE ONLY (No Martingale)\n`;
+    message += `✅ M5 TIMEFRAME ONLY\n`;
+    message += `✅ KENYA TIME (EAT, UTC+3)\n`;
+    message += `✅ Confluence-based scoring\n`;
+    message += `✅ Session risk filtering\n`;
 
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,

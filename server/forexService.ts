@@ -633,7 +633,84 @@ export async function generateSignalAnalysis(
   const sessionTime = getCurrentSessionTime();
   const strictMode = sessionTime === "AFTERNOON" && (pairAccuracy === "MEDIUM" || pairAccuracy === "LOW");
   
+  // ===== NEW RISK MANAGEMENT FILTERS =====
   const reasoning: string[] = [];
+  let skipTrade = false;
+  let skipReason = "";
+  
+  // 1. EXTREME RSI/STOCHASTIC SKIP (>97 or <3)
+  if (technicals.rsi > 97 || technicals.stochastic.k > 97 || technicals.stochastic.d > 97) {
+    skipTrade = true;
+    skipReason = `SKIP: Extreme overbought (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)}, D: ${technicals.stochastic.d.toFixed(1)})`;
+    reasoning.push(skipReason);
+  }
+  if (technicals.rsi < 3 || technicals.stochastic.k < 3 || technicals.stochastic.d < 3) {
+    skipTrade = true;
+    skipReason = `SKIP: Extreme oversold (RSI: ${technicals.rsi.toFixed(1)}, Stoch K: ${technicals.stochastic.k.toFixed(1)}, D: ${technicals.stochastic.d.toFixed(1)})`;
+    reasoning.push(skipReason);
+  }
+  
+  // 2. SHORT-TERM VOLATILITY FILTER (last candle range >= 1.5x average M5 range)
+  if (candles.length >= 14) {
+    const avgRange = candles.slice(-14).reduce((sum, c) => sum + (c.high - c.low), 0) / 14;
+    const lastCandleRange = candles[candles.length - 1].high - candles[candles.length - 1].low;
+    if (lastCandleRange >= avgRange * 1.5) {
+      skipTrade = true;
+      skipReason = `SKIP: High volatility spike - last candle range (${(lastCandleRange * 10000).toFixed(1)} pips) >= 1.5x avg (${(avgRange * 10000).toFixed(1)} pips)`;
+      reasoning.push(skipReason);
+    }
+  }
+  
+  // 3. CONSECUTIVE CANDLE CONFIRMATION (require 2 trend-confirming candles)
+  let hasConsecutiveConfirmation = false;
+  if (candles.length >= 3) {
+    const lastCandle = candles[candles.length - 1];
+    const prevCandle = candles[candles.length - 2];
+    const isBullishLast = lastCandle.close > lastCandle.open;
+    const isBullishPrev = prevCandle.close > prevCandle.open;
+    const isBearishLast = lastCandle.close < lastCandle.open;
+    const isBearishPrev = prevCandle.close < prevCandle.open;
+    hasConsecutiveConfirmation = (isBullishLast && isBullishPrev) || (isBearishLast && isBearishPrev);
+  }
+  
+  // 4. AVOID INDECISION CANDLES IN EXTREME ZONES
+  const isExtremeZone = technicals.rsi > 90 || technicals.rsi < 10 || 
+                        technicals.stochastic.k > 90 || technicals.stochastic.k < 10;
+  const indecisionPatterns = ["doji", "spinning_top"];
+  if (isExtremeZone && technicals.candlePattern && indecisionPatterns.includes(technicals.candlePattern)) {
+    skipTrade = true;
+    skipReason = `Indecision candle (${technicals.candlePattern}) in extreme zone`;
+    reasoning.push("SKIP: " + skipReason);
+  }
+  
+  // 5. NO CONSECUTIVE CANDLE CONFIRMATION - skip trade
+  if (!hasConsecutiveConfirmation && !skipTrade) {
+    skipTrade = true;
+    skipReason = "No 2 consecutive trend-confirming candles for entry";
+    reasoning.push("SKIP: " + skipReason);
+  }
+  
+  // ===== EARLY RETURN FOR SKIPPED TRADES =====
+  // If any hard filter triggered, return immediately with confidence 0
+  if (skipTrade) {
+    const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
+    reasoning.push(`TRADE BLOCKED: ${skipReason}`);
+    reasoning.push(`Final Confluence: 0% | Confidence: 0% (SKIPPED)`);
+    
+    return {
+      pair,
+      currentPrice,
+      signalType: "CALL" as const, // Default, won't be used
+      confidence: 0,
+      entry: currentPrice,
+      stopLoss: currentPrice - pipValue * 15,
+      takeProfit: currentPrice + pipValue * 30,
+      technicals,
+      reasoning,
+    };
+  }
+  
+  // ===== PROCEED WITH NORMAL ANALYSIS =====
   let bullishScore = 0;
   let bearishScore = 0;
   
@@ -819,14 +896,25 @@ export async function generateSignalAnalysis(
     : currentPrice - tpPips;
   
   reasoning.push(`Pair accuracy: ${pairAccuracy} | Session: ${sessionTime}${strictMode ? ' (STRICT)' : ''}`);
-  // EXTREME RSI/STOCHASTIC PENALTY
+  
+  // EXTREME RSI/STOCHASTIC PENALTY (5-10% for 90-97 range)
   let extremePenalty = 0;
-  if (technicals.rsi > 90 || technicals.stochastic.k > 90 || technicals.stochastic.d > 90) {
-    extremePenalty = 10;
-    reasoning.push("⚠ Extreme overbought - reduced confidence by 10%");
-  } else if (technicals.rsi < 10 || technicals.stochastic.k < 10 || technicals.stochastic.d < 10) {
-    extremePenalty = 10;
-    reasoning.push("⚠ Extreme oversold - reduced confidence by 10%");
+  if (technicals.rsi > 90 && technicals.rsi <= 97) {
+    extremePenalty += 7;
+    reasoning.push(`⚠ RSI overbought zone (${technicals.rsi.toFixed(1)}) - reduced confidence by 7%`);
+  } else if (technicals.rsi < 10 && technicals.rsi >= 3) {
+    extremePenalty += 7;
+    reasoning.push(`⚠ RSI oversold zone (${technicals.rsi.toFixed(1)}) - reduced confidence by 7%`);
+  }
+  
+  if ((technicals.stochastic.k > 90 && technicals.stochastic.k <= 97) || 
+      (technicals.stochastic.d > 90 && technicals.stochastic.d <= 97)) {
+    extremePenalty += 5;
+    reasoning.push(`⚠ Stochastic overbought zone (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)}) - reduced by 5%`);
+  } else if ((technicals.stochastic.k < 10 && technicals.stochastic.k >= 3) || 
+             (technicals.stochastic.d < 10 && technicals.stochastic.d >= 3)) {
+    extremePenalty += 5;
+    reasoning.push(`⚠ Stochastic oversold zone (K:${technicals.stochastic.k.toFixed(1)}, D:${technicals.stochastic.d.toFixed(1)}) - reduced by 5%`);
   }
   
   // NEUTRAL CANDLE PATTERN PENALTY
@@ -836,8 +924,11 @@ export async function generateSignalAnalysis(
     reasoning.push("⚠ Neutral candle pattern (doji/spinning top) - reduced confidence by 8%");
   }
   
+  // Note: Consecutive candle confirmation is handled in early return above
+  reasoning.push("2 consecutive trend-confirming candles detected (+confirmation)");
+  
   // Apply all penalties
-  confidence = Math.max(45, confidence - extremePenalty - neutralPatternPenalty);
+  confidence = Math.max(30, confidence - extremePenalty - neutralPatternPenalty);
   
   // STRICT CONFIDENCE CAPPING based on confluence
   if (scoreDiff < 20) {
@@ -855,9 +946,16 @@ export async function generateSignalAnalysis(
   
   // STRICT MODE for low accuracy pairs or weak sessions
   if (strictMode) {
-    confidence = Math.max(45, confidence - 20);
+    confidence = Math.max(30, confidence - 20);
     confidence = Math.min(confidence, 55);
     reasoning.push("⚠ STRICT MODE: Medium/Low accuracy pair in afternoon - confidence reduced by 20% and capped at 55%");
+  }
+  
+  // SESSION-BASED MINIMUM (afternoon/evening = require 85% confidence to proceed)
+  // This is a soft gate after all penalties are applied
+  if ((sessionTime === "AFTERNOON" || sessionTime === "EVENING") && confidence < 85) {
+    reasoning.push(`SKIP: ${sessionTime} session requires >= 85% confidence. Current: ${confidence}%`);
+    confidence = 0; // Block this trade
   }
   
   reasoning.push(`Final Confluence: ${confluenceScore}% | Score diff: ${scoreDiff} | R/R: 1:${riskRewardRatio.toFixed(1)} | Confidence: ${confidence}%`);
