@@ -198,12 +198,30 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
       if (timeframe.startsWith('M')) intervalMinutes = parseInt(timeframe.substring(1));
       else if (timeframe.startsWith('H')) intervalMinutes = parseInt(timeframe.substring(1)) * 60;
 
-      const minStartTime = addMinutes(nowKenya, 7);
-      const intervalMs = intervalMinutes * 60 * 1000;
-      const nextCandleTimestamp = Math.ceil(minStartTime.getTime() / intervalMs) * intervalMs;
+      // Calculate the next proper candle start time aligned to clock intervals
+      // For M5: candles start at :00, :05, :10, :15, :20, :25, :30, :35, :40, :45, :50, :55
+      const currentMinutes = nowKenya.getMinutes();
+      const currentSeconds = nowKenya.getSeconds();
+      
+      // Find the next candle boundary
+      const minutesSinceLastCandle = currentMinutes % intervalMinutes;
+      let minutesToNextCandle = intervalMinutes - minutesSinceLastCandle;
+      
+      // If we're at exactly the start of a candle, go to the next one
+      if (minutesSinceLastCandle === 0 && currentSeconds < 30) {
+        minutesToNextCandle = intervalMinutes; // Skip current candle, go to next
+      }
+      
+      // Add lead time - ensure at least 2-3 minutes before candle starts
+      if (minutesToNextCandle < 2) {
+        minutesToNextCandle += intervalMinutes; // Skip to the candle after
+      }
 
-      const startTimeDate = new Date(nextCandleTimestamp);
-      const endTimeDate = addMinutes(startTimeDate, 5);
+      const startTimeDate = addMinutes(nowKenya, minutesToNextCandle);
+      // Round to exact minute (remove seconds)
+      startTimeDate.setSeconds(0, 0);
+      
+      const endTimeDate = addMinutes(startTimeDate, intervalMinutes);
 
       const signal: Signal = {
         id: Math.random().toString(36).substring(7),
