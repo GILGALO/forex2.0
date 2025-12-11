@@ -1,0 +1,87 @@
+NEW SIGNAL 🤖
+━━━━━━━━━━━━━━━━━━━━━
+
+📊 PAIR: USD/CHF
+🟢 DIRECTION: BUY/CALL 📈
+⏱ TIMEFRAME: M5 (5-Minute) ✅
+
+🕐 START TIME: 08:28 EAT (Thu)
+🏁 EXPIRY TIME: 08:28 EAT
+
+━━━━━━━━━━━━━━━━━━━━━
+🔄 TIMEFRAME ALIGNMENT
+━━━━━━━━━━━━━━━━━━━━━
+M5=BULLISH,M15=BULLISH,H1=BULLISH
+✅ 2 Consecutive Strong Candles - Good Confirmation
+
+━━━━━━━━━━━━━━━━━━━━━
+💼 TRADE SETUP
+━━━━━━━━━━━━━━━━━━━━━
+🎯 ENTRY: 0.88655
+🛑 STOP LOSS: 0.88505 (15.0 pips)
+💰 TAKE PROFIT: 0.89105 (45.0 pips)
+📊 RISK/REWARD: 1:3.0
+
+━━━━━━━━━━━━━━━━━━━━━
+💪 SIGNAL QUALITY
+━━━━━━━━━━━━━━━━━━━━━
+🔥 CONFIDENCE: 98%
+📈 CONFLUENCE: 83%
+⚖️ SCORE DIFFERENCE: 130
+
+━━━━━━━━━━━━━━━━━━━━━
+📊 TECHNICAL ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━
+
+📉 MOMENTUM INDICATORS
+🔴 RSI (14): 85.5 - Overbought
+🔴 Stochastic: K=82.9, D=89.7 - Overbought
+• MACD: Bullish ↗️ (Hist: 0.00001)
+
+📈 TREND INDICATORS
+🟢 Supertrend: BULLISH
+• ADX: 82.4 - Very Strong 💪 Trend
+• SMA Position: Above SMA20/50
+
+🎯 VOLATILITY & PATTERNS
+📊 Bollinger Bands: Mid-range
+• Volatility: LOW (ATR: 0.9 pips)
+⚪ Candle Pattern: None
+• Momentum: STRONG
+
+━━━━━━━━━━━━━━━━━━━━━
+⚠️ RISK WARNINGS
+━━━━━━━━━━━━━━━━━━━━━
+⚠️ Overbought territory - watch for potential reversal
+
+━━━━━━━━━━━━━━━━━━━━━
+🌍 SESSION ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━
+🌅 Current Session: MORNING
+🔥 Market Activity: HIGH (Hot Zone) ✅
+📊 Info: London session - Best accuracy expected (70-80%)
+
+━━━━━━━━━━━━━━━━━━━━━
+📋 ACTIVE SAFETY RULES
+━━━━━━━━━━━━━━━━━━━━━
+✅ Smart Rescan - Auto-rescan until high confidence
+✅ Fixed Stakes Only - NO Martingale
+✅ M5 Timeframe - Strictly 5-minute trades
+✅ Kenya Time - All times in EAT (UTC+3)
+✅ HTF Alignment - M15 & H1 must match M5
+✅ Candle Confirmation - 2-3 strong consecutive candles
+✅ Extreme Zone Filter - RSI/Stoch above 97 or below 3 blocked
+✅ Volatility Filter - Spike detection active
+✅ Session Priority - Pair accuracy matching
+✅ Risk Management - Dynamic SL/TP based on ATR
+
+━━━━━━━━━━━━━━━━━━━━━
+💡 RECOMMENDATIONS
+━━━━━━━━━━━━━━━━━━━━━
+• Risk 1-2% of capital per trade maximum
+• Monitor price action at entry time
+• Avoid trading during major news events
+• Best results during current MORNING session
+• HIGH CONFIDENCE - Strong setup ✅
+
+⚠️ Trading involves risk. This is not financial advice. Always use proper risk management

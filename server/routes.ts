@@ -258,7 +258,7 @@ export async function registerRoutes(
         takeProfit: 1.09900,
         technicals: {
           rsi: 45.5,
-          macd: { value: 0.0001, signal: 0.00008, histogram: 0.00002 },
+          macd: { macdLine: 0.0001, signalLine: 0.00008, histogram: 0.00002 },
           stochastic: { k: 42.3, d: 38.7 },
           bollingerBands: { upper: 1.09800, middle: 1.09500, lower: 1.09200, percentB: 0.5, breakout: false },
           sma20: 1.09400,
@@ -273,6 +273,7 @@ export async function registerRoutes(
           pivotPoints: { pivot: 1.09500, r1: 1.09650, r2: 1.09800, s1: 1.09350, s2: 1.09200 },
           fibonacciLevels: { level236: 1.09350, level382: 1.09400, level500: 1.09500, level618: 1.09600, level786: 1.09700 },
           candlePattern: "bullish_engulfing" as const,
+          trend: "BULLISH" as const,
           momentum: "BULLISH" as const,
           volatility: "MODERATE" as const,
           volumeProfile: "HIGH" as const

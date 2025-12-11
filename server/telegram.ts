@@ -10,9 +10,10 @@ function getKenyaTime(): Date {
 
 // Helper function to format time in Kenya (EAT)
 function formatKenyaTime(date: Date): string {
-  const kenyaTime = getKenyaTime();
-  const hours = kenyaTime.getHours().toString().padStart(2, '0');
-  const minutes = kenyaTime.getMinutes().toString().padStart(2, '0');
+  const KENYA_OFFSET_MS = 3 * 60 * 60 * 1000; // +3 hours in milliseconds
+  const kenyaTime = new Date(date.getTime() + KENYA_OFFSET_MS);
+  const hours = kenyaTime.getUTCHours().toString().padStart(2, '0');
+  const minutes = kenyaTime.getUTCMinutes().toString().padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
@@ -138,12 +139,11 @@ export async function sendToTelegram(
     message += `${signal.type === "CALL" ? "🟢" : "🔴"} <b>DIRECTION:</b> ${signal.type === "CALL" ? "BUY/CALL 📈" : "SELL/PUT 📉"}\n`;
     message += `⏱ <b>TIMEFRAME:</b> M5 (5-Minute) ✅\n\n`;
 
-    // Kenya Time with day info
-    const startDate = new Date(signal.startTime);
+    // Kenya Time with day info - startTime and endTime are already formatted strings
     const kenyaStart = getKenyaTime();
     const dayName = kenyaStart.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Africa/Nairobi' });
-    message += `🕐 <b>START TIME:</b> ${formatKenyaTime(startDate)} EAT (${dayName})\n`;
-    message += `🏁 <b>EXPIRY TIME:</b> ${formatKenyaTime(new Date(signal.endTime))} EAT\n\n`;
+    message += `🕐 <b>START TIME:</b> ${signal.startTime} EAT (${dayName})\n`;
+    message += `🏁 <b>EXPIRY TIME:</b> ${signal.endTime} EAT\n\n`;
 
     // Multi-Timeframe Alignment (CRITICAL)
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
