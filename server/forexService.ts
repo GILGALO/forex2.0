@@ -160,6 +160,8 @@ export interface SignalAnalysis {
   takeProfit: number;
   technicals: TechnicalAnalysis;
   reasoning: string[];
+  riskLevel?: "NORMAL" | "HIGH-RISK";
+  stakeReduction?: number; // percentage of normal stake (e.g., 75-80%)
 }
 
 const FOREX_PAIR_MAP: Record<string, { from: string; to: string }> = {
@@ -176,6 +178,27 @@ const FOREX_PAIR_MAP: Record<string, { from: string; to: string }> = {
   "AUD/JPY": { from: "AUD", to: "JPY" },
   "EUR/AUD": { from: "EUR", to: "AUD" },
 };
+
+// Pair-specific minimum ATR requirements (in pips)
+const PAIR_ATR_MINIMUMS: Record<string, number> = {
+  "EUR/USD": 3.0,
+  "GBP/USD": 4.0,
+  "USD/JPY": 4.0,
+  "USD/CHF": 3.5,
+  "AUD/USD": 3.0,
+  "USD/CAD": 3.5,
+  "NZD/USD": 3.0,
+  "EUR/GBP": 2.5,
+  "EUR/JPY": 5.0,
+  "GBP/JPY": 7.0,
+  "AUD/JPY": 4.5,
+  "EUR/AUD": 5.0,
+};
+
+// HIGH-RISK detection thresholds
+const HIGH_RISK_RSI_THRESHOLD = 85;
+const HIGH_RISK_STOCH_THRESHOLD = 85;
+const HIGH_RISK_STAKE_REDUCTION = 75; // Reduce stake to 75-80% of normal
 
 const priceCache: Map<string, { data: ForexQuote; timestamp: number }> = new Map();
 const candleCache: Map<string, { data: CandleData[]; timestamp: number }> = new Map();
@@ -1271,6 +1294,37 @@ export async function generateSignalAnalysis(
     });
   }
 
+  // HIGH-RISK DETECTION: Check if RSI > 85 or Stoch K/D > 85
+  let riskLevel: "NORMAL" | "HIGH-RISK" = "NORMAL";
+  let stakeReduction: number | undefined = undefined;
+  
+  const isHighRiskRSI = technicals.rsi > HIGH_RISK_RSI_THRESHOLD || technicals.rsi < (100 - HIGH_RISK_RSI_THRESHOLD);
+  const isHighRiskStoch = technicals.stochastic.k > HIGH_RISK_STOCH_THRESHOLD || 
+                          technicals.stochastic.d > HIGH_RISK_STOCH_THRESHOLD ||
+                          technicals.stochastic.k < (100 - HIGH_RISK_STOCH_THRESHOLD) ||
+                          technicals.stochastic.d < (100 - HIGH_RISK_STOCH_THRESHOLD);
+  
+  // Get pair-specific ATR minimum
+  const pairAtrMinimum = PAIR_ATR_MINIMUMS[pair] || 3.0;
+  const pipMultiplier = pair.includes("JPY") ? 0.01 : 0.0001;
+  const atrInPips = technicals.atr / pipMultiplier;
+  const atrMeetsMinimum = atrInPips >= pairAtrMinimum;
+  
+  if (isHighRiskRSI || isHighRiskStoch) {
+    // Check if ATR meets minimum requirement for high-risk trades
+    if (!atrMeetsMinimum) {
+      // Block the trade - insufficient volatility for high-risk condition
+      confidence = 0;
+      reasoning.push(`🚫 HIGH-RISK BLOCKED: RSI/Stoch extreme but ATR ${atrInPips.toFixed(1)} pips < ${pairAtrMinimum} pips minimum`);
+    } else {
+      // Mark as HIGH-RISK and recommend stake reduction
+      riskLevel = "HIGH-RISK";
+      stakeReduction = HIGH_RISK_STAKE_REDUCTION;
+      reasoning.push(`⚠️ HIGH-RISK TRADE: RSI=${technicals.rsi.toFixed(1)}, Stoch K=${technicals.stochastic.k.toFixed(1)}/D=${technicals.stochastic.d.toFixed(1)} - Reduce stake to ${HIGH_RISK_STAKE_REDUCTION}%`);
+      reasoning.push(`✅ ATR check passed: ${atrInPips.toFixed(1)} pips >= ${pairAtrMinimum} pips minimum for ${pair}`);
+    }
+  }
+
   const currentSignal: SignalAnalysis = {
     pair,
     currentPrice,
@@ -1281,6 +1335,8 @@ export async function generateSignalAnalysis(
     takeProfit,
     technicals,
     reasoning,
+    riskLevel,
+    stakeReduction,
   };
 
   // SMART RESCAN LOGIC

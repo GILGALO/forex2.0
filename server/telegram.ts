@@ -176,7 +176,15 @@ export async function sendToTelegram(
     message += `━━━━━━━━━━━━━━━━━━━━━\n`;
     message += `${confidenceEmoji} <b>CONFIDENCE:</b> ${signal.confidence}%\n`;
     message += `📈 <b>CONFLUENCE:</b> ${confluenceScore}%\n`;
-    message += `⚖️ <b>SCORE DIFFERENCE:</b> ${scoreDiff}\n\n`;
+    message += `⚖️ <b>SCORE DIFFERENCE:</b> ${scoreDiff}\n`;
+    
+    // HIGH-RISK warning if applicable
+    if (analysis?.riskLevel === "HIGH-RISK") {
+      message += `\n⚠️ <b>HIGH-RISK TRADE</b>\n`;
+      message += `📉 <b>STAKE REDUCTION:</b> ${analysis.stakeReduction || 75}% of normal\n`;
+      message += `💡 RSI/Stochastic in extreme zone - reduce position size\n`;
+    }
+    message += `\n`;
 
     if (analysis?.technicals) {
       const tech = analysis.technicals;
