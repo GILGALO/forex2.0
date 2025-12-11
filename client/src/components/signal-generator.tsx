@@ -180,6 +180,13 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
       if (!foundGoodSignal || !analysisResult) {
         console.log("No valid signal found after all rescan attempts");
         
+        // Show notification for no valid markets
+        toast({
+          title: "No Valid Signal",
+          description: `Scanned ${currentPair} - conditions not met. Will retry soon.`,
+          variant: "default"
+        });
+        
         // Keep timer running in auto mode
         if (isAuto) {
           const nextScan = Date.now() + (7 * 60 * 1000);
@@ -240,6 +247,13 @@ export default function SignalGenerator({ onSignalGenerated, onPairChange }: Sig
 
       setLastSignal(signal);
       onSignalGenerated(signal);
+
+      // Show notification for valid signal found
+      toast({
+        title: "Signal Found",
+        description: `${signal.pair} ${signal.type} - ${signal.confidence}% confidence. Entry: ${signal.startTime}`,
+        variant: "default"
+      });
 
       if (signal.confidence >= MIN_CONFIDENCE_THRESHOLD) {
         sendToTelegram(signal, analysisResult);
